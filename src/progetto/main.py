@@ -9,8 +9,8 @@ It exposes the `kickoff` function to start the flow from CLI and the
 """
 import json
 from random import randint
-from typing import Any, List, Dict, Union
-from pydantic import BaseModel, Field
+from typing import Any, List, Dict, Optional, Union
+from pydantic import BaseModel, Field, ValidationError
 
 from crewai.flow import Flow, listen, start, or_, router
 
@@ -36,6 +36,28 @@ class JSONResponse(BaseModel):
 
     is_about_topic: bool = Field(description="Whether the question is about the topic")
 
+class RagCrewResponseItem(BaseModel):
+    """Schema for the JSON response returned by the RagCrew.
+    Each web search result MUST include:
+     - "origin": "WEB"
+     - "title": <webpage title>
+     - "similarity" set to 1.0
+     - "source": <URL>
+     - "content": <relevant text excerpt>
+     - "is_trusted" field set to false
+        
+    """
+    origin: str = Field(description="The origin of the source, e.g., 'WEB' or 'DOC'")
+    title: str = Field(description="The title of the source")
+    source: str = Field(description="The URL or identifier of the source")
+    content: str = Field(description="The content of the source used as a knowledge")
+    similarity: str = Field(description="A similarity value comes from RAG")
+    is_trusted: bool = Field(default=None, description="Whether the source is trusted based on white list")
+
+class RagCrewResponseList(BaseModel):
+    """Lista validata di risultati di ricerca."""
+    results: List[RagCrewResponseItem] = Field(description="Lista di risultati della ricerca RAG Crew", min_items=1)
+
 class RagState(BaseModel):
     """State carried across the flow steps.
 
@@ -49,7 +71,8 @@ class RagState(BaseModel):
     topic: str = Field(default="Python programming", description="The topic to research about")
     user_question: str = Field(default="", description="The question provided by the user")
     is_about_topic: bool = Field(default=False, description="Whether the question is about the topic")
-    response_rag_crew: List[Dict[str, Any]] = Field(default_factory=list, description="The response from the RagCrew")
+    # response_rag_crew: List[Dict[str, Any]] = Field(default_factory=list, description="The response from the RagCrew")
+    validated_results: Optional[RagCrewResponseList] = Field(default=None, description="Validated search results")
     
 
 class RagFlow(Flow[RagState]):
@@ -160,7 +183,7 @@ class RagFlow(Flow[RagState]):
             print(f"The question '{self.state.user_question}' is not about the topic '{self.state.topic}'. Please ask a relevant question.")
             return "Retry question"
         
-    @listen("Question valid")
+    @listen(or_("Question valid", "JSON not valid"))
     def process_rag(self):
         """Execute the RAG crew to answer a validated question.
 
@@ -185,38 +208,77 @@ class RagFlow(Flow[RagState]):
                 "white_list": white_list
                 })
         )
-        # Parse the raw JSON response from rag_crew
-        response_rag_crew_parsed = json.loads(rag_crew.raw)
         
         payload = {"rag_crew": rag_crew,
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
                 "is_about_topic": self.state.is_about_topic,
-                "response_rag_crew": response_rag_crew_parsed
+                "response_rag_crew": rag_crew.raw
             }
         
         return payload
-    
-    @listen(process_rag)
+
+    @router(process_rag)
+    def validate_rag_crew_results(self, payload: Dict[str, Any]):
+        """Valida i risultati della ricerca usando Pydantic."""
+        try:
+            # Valida direttamente dal payload
+            validated_results = RagCrewResponseList(results=payload["response_rag_crew"])
+            # Salva nello state per uso successivo
+            self.state.validated_results = validated_results
+            print(f"✅ Validation successful! Found {len(validated_results.results)} results")
+            return "JSON valid"
+        except ValidationError as e:
+            print(f"❌ Validation failed: {e}")
+            # Puoi decidere se continuare con dati parziali o fermare il flow
+            print("Invalid JSON structure from RagCrew, repeat the flow.")
+            return "JSON not valid"
+
+    @listen("JSON valid")
     def process_web_site_validation(self, payload: Dict[str, Any]):
-        """ Process the web site validation step. Check if the url is in white list"""
-        print("=======PROCESS WEB SITE=========")
-        print(payload["response_rag_crew"])
-        sources = json.loads(payload["response_rag_crew"])
+        """Process the web site validation step with validated data."""
+        print("=======PROCESS WEB SITE VALIDATION=========")
+        # Usa i dati già validati
+        validated_results = self.state.validated_results
+        # Carica whitelist per validazione URL
         with open(white_list_path, 'r') as file:
             white_list_data = yaml.safe_load(file)
-            # Now white_list is directly a dict with name->url mapping
-            urls = list(white_list_data.get("white_list", {}).values())
-        for item in sources:
-            if item.get("origin") == "WEB":
-                item["is_trusted"] = any(url in item.get("source", "") for url in urls)
-        # payload["response_rag_crew"] = sources
-        return sources
+            trusted_domains = list(white_list_data.get("white_list", {}).values())
+        # Aggiorna is_trusted per risultati web
+        updated_results = []
+        for result in validated_results.results:
+            if result.origin == "WEB":
+                # Verifica se l'URL è nella whitelist
+                is_trusted = any(domain in result.source for domain in trusted_domains)
+                # Crea nuovo oggetto con is_trusted aggiornato
+                updated_result = result.copy(update={"is_trusted": is_trusted})
+                updated_results.append(updated_result.dict())
+            else:
+                updated_results.append(result.dict())
+        return updated_results
+       
+
+    
+    # @listen("JSON valid")
+    # def process_web_site_validation(self, payload: Dict[str, Any]):
+    #     """ Process the web site validation step. Check if the url is in white list"""
+    #     print("=======PROCESS WEB SITE=========")
+    #     print(payload["response_rag_crew"])
+    #     sources = json.loads(payload["response_rag_crew"])
+    #     with open(white_list_path, 'r') as file:
+    #         white_list_data = yaml.safe_load(file)
+    #         # Now white_list is directly a dict with name->url mapping
+    #         urls = list(white_list_data.get("white_list", {}).values())
+    #     for item in sources:
+    #         if item.get("origin") == "WEB":
+    #             item["is_trusted"] = any(url in item.get("source", "") for url in urls)
+    #     # payload["response_rag_crew"] = sources
+    #     return sources
         
 
 
     @listen(process_web_site_validation)
-    def process_answer_writing(self, sources: Dict[str, Any]):
+    def process_answer_writing(self, updated_results: List[Dict[str, Any]]):
         # sources = json.loads(payload["response_rag_crew"])
         answer_writer = (
             AnswerWriter()
@@ -224,7 +286,7 @@ class RagFlow(Flow[RagState]):
             .kickoff(inputs={
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
-                "response_rag_crew": sources
+                "response_rag_crew": updated_results
                 })
         )
         # sources.update({"answer_writer_crew": answer_writer,
