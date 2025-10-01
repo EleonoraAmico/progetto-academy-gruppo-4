@@ -1,0 +1,28 @@
+writing_task:
+    description: >
+      Based on the retrieved documents and the web search results from the previous tasks that find in , write a comprehensive scientific answer to the query: {user_question}.
+    
+      Requirements:
+      - Use formal scientific language
+      - Synthesize information from multiple chunks coherently
+      - Maintain accuracy and cite sources when making specific claims
+      - Structure the answer logically (introduction, main points, conclusion if appropriate)
+      - Use appropriate technical terminology
+      - Ensure clarity while maintaining scientific rigor
+    
+      Context from retrieval:
+      
+    
+    expected_output: >
+      A well-structured scientific answer that:
+      - Directly addresses the query
+      - Synthesizes information from retrieved chunks
+      - Uses formal scientific language
+      - Is clear, accurate, and properly formatted
+      - Includes source attribution where appropriate
+    agent: answer_writer
+    context: 
+      - retriever_task  # ← Usa output del task precedente
+    output_file: output_rag/complete_answer.md
+
+

@@ -1,0 +1,5 @@
+#yaml file with White list of web pages to be used for RAG
+# Dictionary with website names as keys and URLs as values
+white_list:
+  "Python Official Documentation": "python.org/"
+  "Wikipedia": "wikipedia.org/"

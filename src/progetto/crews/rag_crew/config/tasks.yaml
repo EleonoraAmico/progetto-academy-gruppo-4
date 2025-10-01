@@ -1,0 +1,82 @@
+rag_retriever_task:
+  description: >
+    Call the "Rag tool qdrant" to obtain information relevant to this query: {user_question}.
+    This tool retrieves the top relevant chunks from a RAG and return them as:
+    
+    - Full text content of each chunk
+    - Source metadata (_id, source, title)
+    - Similarity scores
+    - All available metadata for evaluation
+    
+    Do NOT synthesize anything and do not write a direct response to the query - retrieve just the documents chunks and provide a response as described in the expected output.
+  expected_output: >
+    A JSON of relevant text chunks results that directly address the query {user_question}. For each search result, provide:
+    - "origin" field that contains the "RAG" string
+    - "title" field that contains the document title
+    - "similarity" field that contains the similarity score
+    - "source" field with the chunk id
+    - "content" with the text retrieved chunk
+    - "is_trusted" field set to true
+    DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
+    DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
+  agent: rag_retriever
+
+web_research_task:
+  description: >
+    Conduct targeted web searches with to find additional relevant information that complements the documents retrieved from the rag_retriever_task.
+    
+    Requirements:
+    - Focus on finding authoritative sources that provide additional context or details related to the user's question {user_question}
+    - Ensure that the information you find is accurate, relevant, and enhances the overall understanding of the topic at hand.
+  expected_output: >
+    A valid JSON array containing:
+    1. ALL the JSON elements from rag_retriever_task (with origin="RAG")
+    2. NEW elements from web search (with origin="WEB")
+       Each web search result MUST include:
+     - "origin": "WEB"
+     - "title": <webpage title>
+     - "similarity" set to 1.0
+     - "source": <URL>
+     - "content": <relevant text excerpt>
+     - "is_trusted" field set to false
+     DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
+     DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
+     
+  agent: web_researcher
+  context: 
+    - rag_retriever_task  # ← Usa output del task precedente
+  output_file: outputs/rag_crew/final_results_agents.txt
+
+# validator_task:
+#   description: >
+#     Validate the accuracy and relevance of the information retrieved from both the RAG and web search results.
+    
+#     Requirements:
+#     - Cross-check facts contained in the "content" field of the provided json input
+#     - Ensure that the information do not create conflicts between themselves  
+#   expected_output: >
+#     A valid JSON array containing ALL the JSON elements from web_research_task, 
+#     and add a field "is_valid" to each element that is true if the cross-checking do not find any conflict, false otherwise
+#   context:
+#     - web_research_task  # ← Usa output del task precedente
+#   agent: validator
+
+
+
+  #  if the url is contained in this white list: {white_list}, false otherwise
+  #  A valid JSON array containing:
+  #1. ALL the JSON elements from rag_retriever_task (with origin="RAG")
+  #2. NEW elements from web search (with origin="WEB")
+  #   Each web search result MUST include:
+  # - "origin": "WEB"
+  # - "title": <webpage title>
+  # - "source": <URL>
+  # - "content": <relevant text excerpt>
+  # - "is_trusted": true/false (true if URL is in white_list {white_list}, false otherwise)
+  #   To the previous JSON elements retrieved in the rag_retriever_task, add these other element that are 
+  # Relevant web search results that directly addressing the query {user_question}. For each search result, provide:
+  # - An "origin" field that contains the "WEB" string
+  # - A "title" field with the title of the website
+  # - A "source" field with the website url
+  # - A "content" with the text retrieved from the website
+  # - A "is_trusted" field that is equal to true
