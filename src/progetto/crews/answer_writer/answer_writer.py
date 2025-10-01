@@ -41,11 +41,12 @@ class AnswerWriter():
         return Task(
             config=self.tasks_config['validator_task'], # type: ignore[index]
         )
+    
     @task
     def writing_task(self) -> Task:
         return Task(
             config=self.tasks_config['writing_task'], # type: ignore[index]
-            context=['validator_task']  # ← Usa output del task precedente
+            context=[self.validator_task()]  # ← Usa output del task precedente
         )
 
 
