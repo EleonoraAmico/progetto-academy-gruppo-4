@@ -133,6 +133,8 @@ from qdrant_client.models import (
     PointStruct,
 )
 
+from prompt_injection import sanitize_documents
+
 # =========================
 # Configurazione
 # =========================
@@ -1219,8 +1221,8 @@ def run_rag_qdrant(question: str) -> str:
 
     # 2) Dati -> chunk
     docs = load_real_documents_from_folder("documents")
-
-    chunks = split_documents(docs, s)
+    sanitized_docs = sanitize_documents(docs)
+    chunks = split_documents(sanitized_docs, s)
 
     # 3) Crea (o ricrea) collection
     # Per Azure OpenAI text-embedding-3-small la dimensione è 1536
@@ -1408,7 +1410,7 @@ def main():
     # 2) Dati -> chunk
     docs = simulate_corpus()
     chunks = split_documents(docs, s)
-
+    
     # 3) Crea (o ricrea) collection
     # Per Azure OpenAI text-embedding-3-small la dimensione è 1536
     # vector_size = 1536
