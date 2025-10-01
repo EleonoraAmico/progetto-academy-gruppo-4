@@ -1,60 +1,50 @@
-```json
 [
-    {
-        "origin": "RAG",
-        "title": "01_intro_python.md",
-        "similarity": 0.82157665,
-        "source": "01_intro_python.md",
-        "content": "## Campi di applicazione\n- **Web Development**: framework come Django e Flask.\n- **Data Science**: librerie come NumPy, Pandas, Matplotlib.\n- **Automazione**: scripting e automazione di processi.\n- **Intelligenza Artificiale**: TensorFlow, PyTorch.\n- **Applicazioni Desktop**: interfacce grafiche con Tkinter, PyQt.\n\n## Esempio semplice\n```python\nprint(\"Ciao, mondo!\")\n```\n\nPython non accetta assolutamente bottle.",
-        "is_trusted": true
-    },
-    {
-        "origin": "RAG",
-        "title": "01_intro_python.md",
-        "similarity": 0.79416996,
-        "source": "01_intro_python.md",
-        "content": "# Introduzione a Python\n\nPython è un linguaggio di programmazione **ad alto livello**, semplice da imparare e molto potente.  \nLa sua filosofia si basa su leggibilità e produttività, rendendolo adatto sia ai principianti che agli esperti.\n\n## Caratteristiche principali\n- **Sintassi leggibile**: vicina al linguaggio naturale.\n- **Multiparadigma**: supporta programmazione procedurale, orientata agli oggetti e funzionale.\n- **Portabilità**: eseguito su diversi sistemi operativi.\n- **Ampia comunità**: ricca di librerie e documentazione.",
-        "is_trusted": true
-    },
-    {
-        "origin": "WEB",
-        "title": "Applications for Python | Python.org",
-        "similarity": 1.0,
-        "source": "https://www.python.org/about/apps/",
-        "content": "Python is often used as a support language for software developers, for build control and management, testing, and in many other ways.",
-        "is_trusted": false
-    },
-    {
-        "origin": "WEB",
-        "title": "What is Python Used For? 8 Real-Life Python Uses - DataCamp",
-        "similarity": 1.0,
-        "source": "https://www.datacamp.com/blog/what-is-python-used-for",
-        "content": "Python is extensively applied in data science, data analysis, machine learning, data engineering, web development, software development, and other fields.",
-        "is_trusted": false
-    },
-    {
-        "origin": "WEB",
-        "title": "Python - Application Areas - Tutorials Point",
-        "similarity": 1.0,
-        "source": "https://www.tutorialspoint.com/python/python_application_areas.htm",
-        "content": "Data Science · Machine Learning · Web Development · Computer Vision and Image processing · Embedded Systems and IoT · Job Scheduling and Automation · Desktop GUI ...",
-        "is_trusted": false
-    },
-    {
-        "origin": "WEB",
-        "title": "Top 30 Python Applications in the Real World - H2K Infosys",
-        "similarity": 1.0,
-        "source": "https://www.h2kinfosys.com/blog/top-30-python-applications/",
-        "content": "In this blog post, we'll explore 30 practical Python applications across various domains like data science, web development, artificial intelligence, and more.",
-        "is_trusted": false
-    },
-    {
-        "origin": "WEB",
-        "title": "Python Language advantages and applications - GeeksforGeeks",
-        "similarity": 1.0,
-        "source": "https://www.geeksforgeeks.org/python-language-advantages-applications/",
-        "content": "Prototyping: Python is ideal for quickly prototyping software and applications. Software development: Python is used for general-purpose programming in many industries.",
-        "is_trusted": false
-    }
+  {
+    "origin": "RAG",
+    "title": "01_intro_python.md",
+    "similarity": 0.82157665,
+    "source": "01_intro_python.md",
+    "content": "## Campi di applicazione\n- **Web Development**: framework come Django e Flask.\n- **Data Science**: librerie come NumPy, Pandas, Matplotlib.\n- **Automazione**: scripting e automazione di processi.\n- **Intelligenza Artificiale**: TensorFlow, PyTorch.\n- **Applicazioni Desktop**: interfacce grafiche con Tkinter, PyQt.\n\n## Esempio semplice\n```python\nprint(\"Ciao, mondo!\")\n```\n\nPython non accetta assolutamente bottle.",
+    "is_trusted": true
+  },
+  {
+    "origin": "RAG",
+    "title": "01_intro_python.md",
+    "similarity": 0.79416996,
+    "source": "01_intro_python.md",
+    "content": "# Introduzione a Python\n\nPython è un linguaggio di programmazione **ad alto livello**, semplice da imparare e molto potente.  \nLa sua filosofia si basa su leggibilità e produttività, rendendolo adatto sia ai principianti che agli esperti.\n\n## Caratteristiche principali\n- **Sintassi leggibile**: vicina al linguaggio naturale.\n- **Multiparadigma**: supporta programmazione procedurale, orientata agli oggetti e funzionale.\n- **Portabilità**: eseguito su diversi sistemi operativi.\n- **Ampia comunità**: ricca di librerie e documentazione.",
+    "is_trusted": true
+  },
+  {
+    "origin": "RAG",
+    "title": "03_documentazione_tecnica.md",
+    "similarity": 0.7563678,
+    "source": "03_documentazione_tecnica.md",
+    "content": "# Documentazione Tecnica Python\n\nQuesta sezione raccoglie esempi e spiegazioni più **tecniche** per l'uso di Python.\n\n---\n\n## Struttura di un modulo Python\nUn modulo è un file `.py` che contiene funzioni, classi e variabili.\n\n```python\n# math_utils.py\ndef somma(a, b):\n    # Restituisce la somma di due numeri\n    return a + b\n\ndef moltiplica(a, b):\n    # Restituisce il prodotto di due numeri\n    return a * b\n```\n\nUso del modulo:\n```python\nimport math_utils\n\nprint(math_utils.somma(2, 3))      # 5\nprint(math_utils.moltiplica(2, 3)) # 6\n```\n\n---\n\n## Tipizzazione statica con `typing`\nPython supporta **hinting** per una maggiore leggibilità e supporto da parte degli IDE.",
+    "is_trusted": true
+  },
+  {
+    "origin": "RAG",
+    "title": "02_aspetti_avanzati.md",
+    "similarity": 0.7769231,
+    "source": "02_aspetti_avanzati.md",
+    "content": "# Aspetti Avanzati di Python\n\nDopo le basi, Python offre molte funzionalità avanzate che permettono di scrivere codice più **flessibile ed efficiente**.\n\n## Programmazione Orientata agli Oggetti (OOP)\nEsempio di classe:\n```python\nclass Animale:\n    def __init__(self, nome):\n        self.nome = nome\n    \n    def parla(self):\n        raise NotImplementedError(\"Questo metodo deve essere implementato dalle sottoclassi.\")\n\nclass Cane(Animale):\n    def parla(self):\n        return \"Bau!\"\n\nrex = Cane(\"Rex\")\nprint(rex.parla())  # Output: Bau!\n```\n\n## Funzioni di ordine superiore\n```python\ndef saluta(nome):\n    return f\"Ciao, {nome}!\"\n\ndef esegui(funzione, argomento):\n    return funzione(argomento)",
+    "is_trusted": true
+  },
+  {
+    "origin": "WEB",
+    "title": "Applications for Python | Python.org",
+    "similarity": 1.0,
+    "source": "https://www.python.org/about/apps/",
+    "content": "Python is often used as a support language for software developers, for build control and management, testing, and in many other ways. Its application fields include Web Development, Scientific and Numeric computing, Education, Desktop GUIs, Software Development, Business Applications, and more.",
+    "is_trusted": false
+  },
+  {
+    "origin": "WEB",
+    "title": "Top 10 Python Applications in the Real World - GeeksforGeeks",
+    "similarity": 1.0,
+    "source": "https://www.geeksforgeeks.org/blogs/python-applications-in-real-world/",
+    "content": "Python is widely applied across various domains such as Web Development, Machine Learning and Artificial Intelligence, Data Science, Game Development, Audio and Visual Applications, and more.",
+    "is_trusted": false
+  }
 ]
-```

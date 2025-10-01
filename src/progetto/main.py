@@ -9,12 +9,13 @@ It exposes the `kickoff` function to start the flow from CLI and the
 """
 import json
 from random import randint
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Union
 from pydantic import BaseModel, Field
 
 from crewai.flow import Flow, listen, start, or_, router
 
 from progetto.crews.rag_crew.rag_crew import RagCrew
+from progetto.crews.answer_writer.answer_writer import AnswerWriter
 from crewai import LLM
 import yaml 
 
@@ -42,11 +43,13 @@ class RagState(BaseModel):
         topic (str): The subject used to scope valid questions.
         user_question (str): The last question provided by the user.
         is_about_topic (bool): Result of the LLM validation step.
+        response_rag_crew (List[Dict[str, Any]]): The parsed response from the RagCrew.
     """
 
     topic: str = Field(default="Python programming", description="The topic to research about")
     user_question: str = Field(default="", description="The question provided by the user")
     is_about_topic: bool = Field(default=False, description="Whether the question is about the topic")
+    response_rag_crew: List[Dict[str, Any]] = Field(default_factory=list, description="The response from the RagCrew")
     
 
 class RagFlow(Flow[RagState]):
@@ -182,11 +185,14 @@ class RagFlow(Flow[RagState]):
                 "white_list": white_list
                 })
         )
+        # Parse the raw JSON response from rag_crew
+        response_rag_crew_parsed = json.loads(rag_crew.raw)
+        
         payload = {"rag_crew": rag_crew,
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
                 "is_about_topic": self.state.is_about_topic,
-                "response_rag_crew": rag_crew.raw
+                "response_rag_crew": response_rag_crew_parsed
             }
         
         return payload
@@ -204,15 +210,31 @@ class RagFlow(Flow[RagState]):
         for item in sources:
             if item.get("origin") == "WEB":
                 item["is_trusted"] = any(url in item.get("source", "") for url in urls)
-        print(sources)
-
-        return payload
+        # payload["response_rag_crew"] = sources
+        return sources
         
-    @listen(process_rag)
-    def finalize(self, payload: Dict[str, Any]):
-        return payload
-    
 
+
+    @listen(process_web_site_validation)
+    def process_answer_writing(self, sources: Dict[str, Any]):
+        # sources = json.loads(payload["response_rag_crew"])
+        answer_writer = (
+            AnswerWriter()
+            .crew()
+            .kickoff(inputs={
+                "user_question": self.state.user_question,
+                "topic": self.state.topic,
+                "response_rag_crew": sources
+                })
+        )
+        # sources.update({"answer_writer_crew": answer_writer,
+        #         "final_answer_crew": answer_writer.raw
+        #     })
+        # return sources
+
+    # @listen(process_answer_writing)
+    # def finalize(self, payload: Dict[str, Any]):
+    #     return payload
 
 def kickoff():
     """Start the ``RagFlow`` from the command line.

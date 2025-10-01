@@ -19,13 +19,6 @@ web_researcher:
     You should focus on finding authoritative sources that provide additional context or details related to the user's question {user_question}.
     Ensure that the information you find is accurate, relevant, and enhances the overall understanding of the topic at hand.
 
-# validator:
-#   role: >
-#     Information Validator
-#   goal: >
-#     Validate the accuracy and relevance of the information retrieved from both the RAG and web search results.
-#   backstory: >
-#     You are an expert in information validation. Your task is to critically assess the information retrieved from both the RAG and web search results to ensure its accuracy, relevance, and reliability.
-#     You should cross-check facts contained in the "content" field of the provided json input, and ensure that the information do not create conflicts between themselves.
+
     
     

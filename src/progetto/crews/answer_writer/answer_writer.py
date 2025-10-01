@@ -20,6 +20,12 @@ class AnswerWriter():
     # If you would like to add tools to your agents, you can learn more about it here:
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
+    def validator(self) -> Agent:
+        return Agent(
+            config=self.agents_config['validator'], # type: ignore[index]
+            verbose=True
+        )
+    @agent
     def answer_writer(self) -> Agent:
         return Agent(
             config=self.agents_config['answer_writer'], # type: ignore[index]
@@ -29,10 +35,17 @@ class AnswerWriter():
     # To learn more about structured task outputs,
     # task dependencies, and task callbacks, check out the documentation:
     # https://docs.crewai.com/concepts/tasks#overview-of-a-task
+
+    @task
+    def validator_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['validator_task'], # type: ignore[index]
+        )
     @task
     def writing_task(self) -> Task:
         return Task(
             config=self.tasks_config['writing_task'], # type: ignore[index]
+            context=['validator_task']  # ← Usa output del task precedente
         )
 
 
