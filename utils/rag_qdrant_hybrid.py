@@ -133,7 +133,7 @@ from qdrant_client.models import (
     PointStruct,
 )
 
-from prompt_injection import sanitize_documents
+from utils.prompt_injection import sanitize_documents
 
 # =========================
 # Configurazione

@@ -27,38 +27,40 @@ track_crewai(project_name="crewai-rag-crew-progetto")
 # Settings
 white_list_path = "utils/white_list.yaml"
 
-class JSONResponse(BaseModel):
-    """Schema for the JSON response returned by the validation LLM.
-
-    Attributes:
-        is_about_topic (bool): Whether the question refers to the configured topic.
-    """
-
-    is_about_topic: bool = Field(description="Whether the question is about the topic")
-
 class RagCrewResponseItem(BaseModel):
     """Schema for the JSON response returned by the RagCrew.
-    Each web search result MUST include:
-     - "origin": "WEB"
-     - "title": <webpage title>
-     - "similarity" set to 1.0
-     - "source": <URL>
-     - "content": <relevant text excerpt>
-     - "is_trusted" field set to false
-        
+    The JSON response is expected to be similar to this structure:
+    [
+        {
+            "origin": "RAG",
+            "title": "01_intro_python.md",
+            "similarity": 0.82157665,
+            "source": "01_intro_python.md",
+            "content": "## Campi di applicazione\n- **Web Development**: framework come Django e Flask.\n- **Data Science**: librerie come NumPy, Pandas, Matplotlib.\n- **Automazione**: scripting e automazione di processi.\n- **Intelligenza Artificiale**: TensorFlow, PyTorch.\n- **Applicazioni Desktop**: interfacce grafiche con Tkinter, PyQt.\n\n## Esempio semplice\n```python\nprint(\"Ciao, mondo!\")\n```\n\nPython non accetta assolutamente bottle.",
+            "is_trusted": true
+        },
+        {
+            "origin": "WEB",
+            "title": "Python - Application Areas - Tutorials Point",
+            "similarity": 1.0,
+            "source": "https://www.tutorialspoint.com/python/python_application_areas.htm",
+            "content": "Python is used in Data Science, Machine Learning, Web Development, Computer Vision, Embedded Systems, Job Scheduling, GUI, Console, CAD, and Game Development.",
+            "is_trusted": false
+        }
+    ]
     """
     origin: str = Field(description="The origin of the source, e.g., 'WEB' or 'DOC'")
     title: str = Field(description="The title of the source")
     source: str = Field(description="The URL or identifier of the source")
     content: str = Field(description="The content of the source used as a knowledge")
-    similarity: str = Field(description="A similarity value comes from RAG")
-    is_trusted: bool = Field(default=None, description="Whether the source is trusted based on white list")
+    similarity: float = Field(description="A similarity value comes from RAG")
+    is_trusted: bool = Field(description="Whether the source is trusted based on white list")
 
 class RagCrewResponseList(BaseModel):
     """Lista validata di risultati di ricerca."""
-    results: List[RagCrewResponseItem] = Field(description="Lista di risultati della ricerca RAG Crew", min_items=1)
+    results: List[RagCrewResponseItem] = Field(description="Lista di risultati della ricerca RAG Crew")
 
-class RagState(BaseModel):
+class FlowState(BaseModel):
     """State carried across the flow steps.
 
     Attributes:
@@ -67,15 +69,14 @@ class RagState(BaseModel):
         is_about_topic (bool): Result of the LLM validation step.
         response_rag_crew (List[Dict[str, Any]]): The parsed response from the RagCrew.
     """
-
     topic: str = Field(default="Python programming", description="The topic to research about")
     user_question: str = Field(default="", description="The question provided by the user")
     is_about_topic: bool = Field(default=False, description="Whether the question is about the topic")
-    # response_rag_crew: List[Dict[str, Any]] = Field(default_factory=list, description="The response from the RagCrew")
-    validated_results: Optional[RagCrewResponseList] = Field(default=None, description="Validated search results")
-    
+    rag_crew_raw_response: str = Field(default="", description="The raw response from the RagCrew")
+    rag_crew_validated_response: Optional[RagCrewResponseList] = Field(default=None, description="Validated search results")
 
-class RagFlow(Flow[RagState]):
+
+class RagFlow(Flow[FlowState]):
     """Conversation flow to validate and answer topic-specific questions.
 
     The flow consists of:
@@ -143,7 +144,7 @@ class RagFlow(Flow[RagState]):
         print("Evaluating if the question is about the topic...")
 
         # Initialize the LLM
-        llm = LLM(model="azure/gpt-4o", response_format=JSONResponse)
+        llm = LLM(model="azure/gpt-4o", response_format=FlowState)
 
         # Create the messages for the outline
         messages = [
@@ -222,10 +223,22 @@ class RagFlow(Flow[RagState]):
     def validate_rag_crew_results(self, payload: Dict[str, Any]):
         """Valida i risultati della ricerca usando Pydantic."""
         try:
+            # Parse the JSON string first, then validate
+            raw_response = payload["response_rag_crew"]
+            if isinstance(raw_response, str):
+                parsed_response = json.loads(raw_response)
+            else:
+                parsed_response = raw_response
+
             # Valida direttamente dal payload
-            validated_results = RagCrewResponseList(results=payload["response_rag_crew"])
+            validated_results = RagCrewResponseList(results=parsed_response)
+            print("=======RawResponse=========")
+            print(raw_response)
+            print("=======VALIDATED RESULTS=========")
+            print(validated_results)
+
             # Salva nello state per uso successivo
-            self.state.validated_results = validated_results
+            self.state.rag_crew_validated_response = validated_results
             print(f"✅ Validation successful! Found {len(validated_results.results)} results")
             return "JSON valid"
         except ValidationError as e:
@@ -237,9 +250,8 @@ class RagFlow(Flow[RagState]):
     @listen("JSON valid")
     def process_web_site_validation(self, payload: Dict[str, Any]):
         """Process the web site validation step with validated data."""
-        print("=======PROCESS WEB SITE VALIDATION=========")
         # Usa i dati già validati
-        validated_results = self.state.validated_results
+        validated_results = self.state.rag_crew_validated_response
         # Carica whitelist per validazione URL
         with open(white_list_path, 'r') as file:
             white_list_data = yaml.safe_load(file)
