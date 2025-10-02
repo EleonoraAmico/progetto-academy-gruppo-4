@@ -86,7 +86,7 @@ class RagFlow(Flow[FlowState]):
         """The first step in the flow."""
         return 
     
-    @listen(or_(start, "Invalid question"))
+    @listen(or_(start, "Retry question"))
     def ask_question(self):
         """Prompt the user to provide a sector and a question relevant to the main topic."""
         print(f"Provide the {main_topic} sector: ")
@@ -134,19 +134,20 @@ class RagFlow(Flow[FlowState]):
             "allowed_topics": allowed_topics,
             "user_topic": self.state.topic,
             "user_question": self.state.user_question,
-            "is_about_topic": self.state.is_topic_related,}
+            "is_topic_related": self.state.is_topic_related,}
         return payload
 
     @router(process_topic)
-    def validate_question(self):
+    def validate_question(self, payload: Dict[str, Any]):
         """Route based on validation outcome."""
         if self.state.is_topic_related:
-            return "Valid question"
+            print(f"The question is relevant to the topic")
+            return "Question valid"
         else:
             print(f"The question '{self.state.user_question}' is not about the topic '{self.state.topic}'. Please ask a relevant question.")
-            return "Invalid question"
+            return "Retry question"
 
-    @listen(or_("Valid Question", "Rag crew JSON not valid"))
+    @listen(or_("Question valid", "JSON not valid"))
     def process_rag(self):
         """Execute the RAG crew to answer a validated question.
         """
@@ -185,24 +186,20 @@ class RagFlow(Flow[FlowState]):
             else:
                 parsed_response = raw_response
 
-            # Valida direttamente dal payload
+            # validate using Pydantic
             validated_results = RagCrewResponseList(results=parsed_response)
-            print("=======RawResponse=========")
-            print(raw_response)
-            print("=======VALIDATED RESULTS=========")
-            print(validated_results)
 
             # Salva nello state per uso successivo
             self.state.rag_crew_validated_response = validated_results
             print(f"✅ Validation successful! Found {len(validated_results.results)} results")
-            return "Rag crew JSON valid"
+            return "JSON valid"
         except ValidationError as e:
             print(f"❌ Validation failed: {e}")
             # Puoi decidere se continuare con dati parziali o fermare il flow
             print("Invalid JSON structure from RagCrew, repeat the flow.")
-            return "Rag crew JSON not valid"
+            return "JSON not valid"
 
-    @listen("Rag crew JSON valid")
+    @listen("JSON valid")
     def process_web_site_validation(self, payload: Dict[str, Any]):
         """Process the web site validation step with validated data."""
         # Usa i dati già validati
