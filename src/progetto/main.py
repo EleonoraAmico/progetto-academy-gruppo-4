@@ -1,12 +1,3 @@
-"""High-level orchestration for the RAG demo application.
-
-This module defines a Flow-based interaction where a user is prompted for a
-question about a predefined topic, the question is validated by an LLM, and
-valid questions are executed through a `RagCrew` to produce answers.
-
-It exposes the `kickoff` function to start the flow from CLI and the
-`RagFlow` class implementing the flow logic.
-"""
 import json
 from random import randint
 from typing import Any, List, Dict, Optional, Union
@@ -19,13 +10,18 @@ from progetto.crews.answer_writer.answer_writer import AnswerWriter
 from crewai import LLM
 import yaml 
 
+# Opik tracking
 import opik
-opik.configure(use_local=True)
 from opik.integrations.crewai import track_crewai
+opik.configure(use_local=True)
 track_crewai(project_name="crewai-rag-crew-progetto")
 
-# Settings
+# Global Settings
 white_list_path = "utils/white_list.yaml"
+main_topic = "Calls for Proposals or Calls for Action"
+allowed_topics = ["Culture", "ICT", "Green Economy"]
+# main_topic = "python"
+# allowed_topics = ["python"]
 
 class RagCrewResponseItem(BaseModel):
     """Schema for the JSON response returned by the RagCrew.
@@ -49,7 +45,7 @@ class RagCrewResponseItem(BaseModel):
         }
     ]
     """
-    origin: str = Field(description="The origin of the source, e.g., 'WEB' or 'DOC'")
+    origin: str = Field(description="The origin of the source, e.g., 'RAG' or 'WEB'")
     title: str = Field(description="The title of the source")
     source: str = Field(description="The URL or identifier of the source")
     content: str = Field(description="The content of the source used as a knowledge")
@@ -57,8 +53,8 @@ class RagCrewResponseItem(BaseModel):
     is_trusted: bool = Field(description="Whether the source is trusted based on white list")
 
 class RagCrewResponseList(BaseModel):
-    """Lista validata di risultati di ricerca."""
-    results: List[RagCrewResponseItem] = Field(description="Lista di risultati della ricerca RAG Crew")
+    """Validation model for a list of RagCrewResponseItem."""
+    results: List[RagCrewResponseItem] = Field(description="List of RAG Crew search results")
 
 class FlowState(BaseModel):
     """State carried across the flow steps.
@@ -69,9 +65,9 @@ class FlowState(BaseModel):
         is_about_topic (bool): Result of the LLM validation step.
         response_rag_crew (List[Dict[str, Any]]): The parsed response from the RagCrew.
     """
-    topic: str = Field(default="Python programming", description="The topic to research about")
+    topic: str = Field(default="", description="The topic for scoping questions")
+    is_topic_related: bool = Field(default=False, description="Whether the question is about the topic")
     user_question: str = Field(default="", description="The question provided by the user")
-    is_about_topic: bool = Field(default=False, description="Whether the question is about the topic")
     rag_crew_raw_response: str = Field(default="", description="The raw response from the RagCrew")
     rag_crew_validated_response: Optional[RagCrewResponseList] = Field(default=None, description="Validated search results")
 
@@ -89,68 +85,42 @@ class RagFlow(Flow[FlowState]):
 
     @start()
     def start(self):
-        """Initialize the flow state and start the run.
-
-        Returns:
-            None: This method is an entry point that triggers the flow.
-
-        Examples:
-            >>> flow = RagFlow()
-            >>> result = flow.start()  # returns None, begins the flow
-        """
+        """The first step in the flow."""
         return 
     
     @listen(or_(start, "Retry question"))
     def ask_question(self):
-        """Prompt the user to input a question about the configured topic.
-
-        Side Effects:
-            Stores the user's input in ``self.state.user_question``.
-
-        Returns:
-            None
-
-        Examples:
-            >>> flow = RagFlow()
-            >>> flow.state.topic = "Python programming"
-            >>> # This call prompts on stdin; for tests, patch input()
-            >>> # flow.ask_question()
-        """
-        print("Make a question about the Python programming topic")
-        self.state.user_question = input("Your question: ")
+        """Prompt the user to provide a sector and a question relevant to the main topic."""
+        print(f"Provide the {main_topic} sector: ")
+        self.state.topic = input("sector: ")
+        print("Provide a question: ")
+        self.state.user_question = input("question: ")
         
 
     @listen(ask_question)
     def process_topic(self):
-        """Evaluate if the question is about the current topic using an LLM.
-
-        On success, sets ``self.state.is_about_topic`` by parsing the LLM JSON
+        """Evaluate if the sector and the question are relevant to the current topic using an LLM.
+        On success, sets ``self.state.is_topic_related`` by parsing the LLM JSON
         response.
-
-        Returns:
-            None
-
-        Raises:
-            json.JSONDecodeError: If the LLM output is not valid JSON.
-            Exception: Propagated from the underlying LLM client on failure.
-
-        Examples:
-            >>> flow = RagFlow()
-            >>> flow.state.topic = "Python programming"
-            >>> flow.state.user_question = "What is a list in Python?"
-            >>> # In tests, mock LLM.call to return '{"is_about_topic": true}'
-            >>> # flow.process_topic()
         """
-        print("Evaluating if the question is about the topic...")
+        print("Validating the question and the sector.")
 
         # Initialize the LLM
         llm = LLM(model="azure/gpt-4o", response_format=FlowState)
 
         # Create the messages for the outline
         messages = [
-            {"role": "system", "content": "You are an assistant designed to evaluate whether the question is about the topic, and provide an answer in a json format with a boolean field called is_about_topic."},
+            {"role": "system", "content": f"""
+             You are an assistant designed to evaluate whether a topic and a user question are relevant to 
+             {main_topic}, and provide an answer in a json format with a boolean field called 
+             is_topic_related.
+             """},
             {"role": "user", "content": f"""
-            Evaluate if the question "{self.state.user_question}" is about the topic "{self.state.topic}". Respond strictly with a JSON string in the style of provided JSONResponse format without any kind of other extra text rather than the json.
+            Evaluate if:
+            - the question "{self.state.user_question}" and the topic "{self.state.topic}" are relevant to {main_topic}. 
+            - the topic "{self.state.topic}" is related to one of these topics: {', '.join(allowed_topics)}.
+            Italian translations are accepted.
+            Respond strictly with a JSON string in the style of provided JSONResponse format without any kind of other extra text rather than the json.
             """}
         ]
 
@@ -158,45 +128,30 @@ class RagFlow(Flow[FlowState]):
         response = llm.call(messages=messages)
         print("Raw response: ", response)
         # Parse the JSON response
-        outline_dict = json.loads(response)
-        self.state.is_about_topic = outline_dict.get("is_about_topic", False)
-    
+        llm_response = json.loads(response)
+        self.state.is_topic_related = llm_response.get("is_topic_related", False)
+
+        payload = {
+            "main_topic": main_topic,
+            "allowed_topics": allowed_topics,
+            "user_topic": self.state.topic,
+            "user_question": self.state.user_question,
+            "is_topic_related": self.state.is_topic_related,}
+        return payload
+
     @router(process_topic)
     def validate_question(self):
-        """Route based on validation outcome.
-
-        Returns:
-            str: The next route label ("Question valid" or "Retry question").
-
-        Examples:
-            >>> flow = RagFlow()
-            >>> flow.state.is_about_topic = True
-            >>> flow.validate_question()
-            'Question valid'
-            >>> flow.state.is_about_topic = False
-            >>> flow.validate_question()
-            'Retry question'
-        """
-        print("Validate if the question is about the topic")
-        if self.state.is_about_topic:
+        """Route based on validation outcome."""
+        if self.state.is_topic_related:
+            print(f"The question is relevant to the topic")
             return "Question valid"
         else:
             print(f"The question '{self.state.user_question}' is not about the topic '{self.state.topic}'. Please ask a relevant question.")
             return "Retry question"
-        
+
     @listen(or_("Question valid", "JSON not valid"))
     def process_rag(self):
         """Execute the RAG crew to answer a validated question.
-
-        Returns:
-            None
-
-        Examples:
-            >>> flow = RagFlow()
-            >>> flow.state.user_question = "What is a list in Python?"
-            >>> flow.state.topic = "Python programming"
-            >>> # This triggers the configured crew; in tests, mock RagCrew.crew()
-            >>> # flow.process_rag()
         """
         with open('utils/white_list.yaml', 'r') as file:
             white_list = yaml.safe_load(file)
@@ -209,39 +164,38 @@ class RagFlow(Flow[FlowState]):
                 "white_list": white_list
                 })
         )
+
+        self.state.rag_crew_raw_response = rag_crew.raw
         
-        payload = {"rag_crew": rag_crew,
+        payload = {
+            "rag_crew": rag_crew,
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
-                "is_about_topic": self.state.is_about_topic,
+                "is_about_topic": self.state.is_topic_related,
                 "response_rag_crew": rag_crew.raw
             }
         
         return payload
 
     @router(process_rag)
-    def validate_rag_crew_results(self, payload: Dict[str, Any]):
+    def validate_rag_crew_results(self):
         """Valida i risultati della ricerca usando Pydantic."""
         try:
             # Parse the JSON string first, then validate
-            raw_response = payload["response_rag_crew"]
+            raw_response = self.state.rag_crew_raw_response
             if isinstance(raw_response, str):
                 parsed_response = json.loads(raw_response)
             else:
                 parsed_response = raw_response
 
-            # Valida direttamente dal payload
+            # validate using Pydantic
             validated_results = RagCrewResponseList(results=parsed_response)
-            print("=======RawResponse=========")
-            print(raw_response)
-            print("=======VALIDATED RESULTS=========")
-            print(validated_results)
 
             # Salva nello state per uso successivo
             self.state.rag_crew_validated_response = validated_results
             print(f"✅ Validation successful! Found {len(validated_results.results)} results")
             return "JSON valid"
-        except ValidationError as e:
+        except Exception as e:
             print(f"❌ Validation failed: {e}")
             # Puoi decidere se continuare con dati parziali o fermare il flow
             print("Invalid JSON structure from RagCrew, repeat the flow.")
