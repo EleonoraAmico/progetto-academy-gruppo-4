@@ -145,8 +145,8 @@ class RagFlow(Flow[FlowState]):
         else:
             print(f"The question '{self.state.user_question}' is not about the topic '{self.state.topic}'. Please ask a relevant question.")
             return "Invalid question"
-        
-    @listen(or_("Valid Question", "JSON not valid"))
+
+    @listen(or_("Valid Question", "Rag crew JSON not valid"))
     def process_rag(self):
         """Execute the RAG crew to answer a validated question.
         """
@@ -195,14 +195,14 @@ class RagFlow(Flow[FlowState]):
             # Salva nello state per uso successivo
             self.state.rag_crew_validated_response = validated_results
             print(f"✅ Validation successful! Found {len(validated_results.results)} results")
-            return "JSON valid"
+            return "Rag crew JSON valid"
         except ValidationError as e:
             print(f"❌ Validation failed: {e}")
             # Puoi decidere se continuare con dati parziali o fermare il flow
             print("Invalid JSON structure from RagCrew, repeat the flow.")
-            return "JSON not valid"
+            return "Rag crew JSON not valid"
 
-    @listen("JSON valid")
+    @listen("Rag crew JSON valid")
     def process_web_site_validation(self, payload: Dict[str, Any]):
         """Process the web site validation step with validated data."""
         # Usa i dati già validati
