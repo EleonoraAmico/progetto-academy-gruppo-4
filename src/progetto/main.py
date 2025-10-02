@@ -14,7 +14,6 @@ import yaml
 import opik
 from opik.integrations.crewai import track_crewai
 opik.configure(use_local=True)
-track_crewai(project_name="crewai-rag-crew-progetto")
 
 # Global Settings
 white_list_path = "utils/white_list.yaml"
@@ -246,8 +245,6 @@ class RagFlow(Flow[FlowState]):
         self.state.answer_writer = answer_writer
         self.state.answer_writer_raw_response = answer_writer.raw
 
-    @listen(process_answer_writing)
-    def finalize(self):
         payload = {
             "rag_crew": self.state.rag_crew,
             "answer_writer": self.state.answer_writer,
@@ -259,6 +256,10 @@ class RagFlow(Flow[FlowState]):
             "web_validation_results": self.state.web_validation_results,
             "answer_writer_raw_response": self.state.answer_writer_raw_response
         }
+        return payload
+
+    @listen(process_answer_writing)
+    def finalize(self, payload: Dict[str, Any]):
         return payload
 
 def kickoff():
