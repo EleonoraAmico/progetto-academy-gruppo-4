@@ -20,6 +20,8 @@ track_crewai(project_name="crewai-rag-crew-progetto")
 white_list_path = "utils/white_list.yaml"
 main_topic = "Calls for Proposals or Calls for Action"
 allowed_topics = ["Culture", "ICT", "Green Economy"]
+# main_topic = "python"
+# allowed_topics = ["python"]
 
 class RagCrewResponseItem(BaseModel):
     """Schema for the JSON response returned by the RagCrew.
@@ -138,7 +140,7 @@ class RagFlow(Flow[FlowState]):
         return payload
 
     @router(process_topic)
-    def validate_question(self, payload: Dict[str, Any]):
+    def validate_question(self):
         """Route based on validation outcome."""
         if self.state.is_topic_related:
             print(f"The question is relevant to the topic")
@@ -193,7 +195,7 @@ class RagFlow(Flow[FlowState]):
             self.state.rag_crew_validated_response = validated_results
             print(f"✅ Validation successful! Found {len(validated_results.results)} results")
             return "JSON valid"
-        except ValidationError as e:
+        except Exception as e:
             print(f"❌ Validation failed: {e}")
             # Puoi decidere se continuare con dati parziali o fermare il flow
             print("Invalid JSON structure from RagCrew, repeat the flow.")
