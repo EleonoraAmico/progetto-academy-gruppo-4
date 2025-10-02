@@ -87,12 +87,12 @@ def main():
     # 4) Upsert chunks
     rag_qdrant_hybrid.upsert_chunks(client, s, chunks, embeddings)
     
-    questions = ["Cos'è Python?"]
+    questions = ["Qual è l'obiettivo O1 dell'intervento turismo cloud avs in Sardegna?"]
     
     chain = rag_qdrant_hybrid.build_rag_chain(llm)
     
     ground_truth = {
-        questions[0]: "Python è un linguaggio di programmazione."
+        questions[0]: "L'obiettivo O1 dell'intervento turismo cloud avs in Sardegna è sostenere fino al subentro di fornitori l'operatività dei sistemi informativi"
     }
     
     # 6) Costruisci dataset per Ragas (stessi top-k del tuo retriever)

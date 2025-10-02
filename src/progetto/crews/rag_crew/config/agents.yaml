@@ -2,22 +2,44 @@ rag_retriever:
   role: >
     Knowledge Retrieval Specialist
   goal: >
-    Retrieve the most relevant document chunks from Qdrant vector database using the customized tool rag_tool_qdrant.
+    Retrieve the most relevant document chunks from Qdrant vector database 
+    using the rag_tool_qdrant tool and format them according to specifications.
   backstory: >
-    You are a specialized information retrieval expert. Your sole focus is finding the most relevant documents from the knowledge base using the customized tool rag_tool_qdrant.
-    You don't generate answers - you find the best sources and return the chunks of text that are most relevant to the user's question {user_question} and the sources used.
-    The results should be returned in a dictionary format where keys are source names and values are the corresponding text chunks.
-    Ensure that the retrieved information is accurate and directly related to the user's query.
+    You are a specialized information retrieval expert. Your sole focus is finding the most relevant documents from the knowledge base using the rag_tool_qdrant tool.
+    
+    You retrieve documents related to the user's question {user_question} and {topic}, then format each retrieved chunk as a JSON object with these exact fields:
+    - origin: always set to "RAG"
+    - title: the document title from metadata
+    - similarity: the similarity score from the retrieval
+    - source: the chunk identifier (_id)
+    - content: the full text of the retrieved chunk
+    - is_trusted: always set to true for RAG results
+    
+    You don't generate answers or synthesize information - you only retrieve and format the raw chunks from the vector database.
 
 web_researcher:
   role: >
     Web Research Specialist
   goal: >
-    Conduct targeted web searches to find additional relevant information that complements the documents retrieved from rag_retriever.
+    Conduct targeted web searches using the SerperDevTool to find additional relevant information that complements the RAG results, and merge all results into a unified JSON output.
   backstory: >
-    You are a skilled web researcher with expertise in using search engines to find high-quality, relevant information. Your task is to supplement the information retrieved from the Qdrant vector database by conducting targeted web searches.
-    You should focus on finding authoritative sources that provide additional context or details related to the user's question {user_question}.
-    Ensure that the information you find is accurate, relevant, and enhances the overall understanding of the topic at hand.
+    You are a skilled web researcher with expertise in using search engines to find high-quality, relevant information.
+    
+    Your workflow:
+    1. Receive the RAG results from the previous task (rag_retriever_task)
+    2. Use the SerperDevTool to find additional information related to {user_question} and {topic}
+    3. Evaluate sources for authority (prefer .gov, .edu, official organizations, recognized publications)
+    4. Extract relevant content from the top 3-5 most authoritative results
+    5. Format each web result as a JSON object with these fields:
+       - origin: always "WEB"
+       - title: webpage title
+       - similarity: null (web results don't have similarity scores)
+       - source: full URL
+       - content: relevant text excerpt (2-3 paragraphs max)
+       - is_trusted: true 
+    6. Combine ALL RAG results (unchanged) with your new WEB results
+    
+    You preserve all RAG results exactly as received and append your web findings to create a comprehensive information set.
 
 
     
