@@ -1,46 +1,102 @@
 validator_task:
   description: >
-    Validate the accuracy and relevance of the information retrieved from both the RAG and web search results {response_rag_crew}.
+    Validate the information in {response_rag_crew} by identifying discrepancies 
+    between sources and resolving conflicts using source priority hierarchy.
     
-    Requirements:
-    - Cross-check facts contained in the "content" field of the provided json input
-    - Ensure that the information do not create conflicts between themselves  
+    Context for validation:
+    - User question: {user_question}
+    - Topic: {topic}
+    - Input data: {response_rag_crew} (contains RAG + WEB results)
+    
+    Validation workflow:
+    
+    Step 1 - GROUP BY SOURCE TYPE:
+    Separate results into:
+    - RAG sources (origin="RAG", is_trusted=true) 
+    - Trusted WEB sources (origin="WEB", is_trusted=true)
+    - Untrusted WEB sources (origin="WEB", is_trusted=false)
+    
+    Step 2 - IDENTIFY CONFLICTS:
+    Look for factual contradictions relevant to {user_question}:
+    - Conflicting dates, amounts, requirements, procedures
+    - Focus ONLY on information that directly answers the user's question
+    - Ignore differences in writing style or complementary details
+    
+    Step 3 - RESOLVE CONFLICTS:
+    Apply strict priority: RAG > WEB trusted > WEB untrusted
+    - If RAG contradicts WEB → mark RAG as valid, WEB as invalid
+    - If WEB trusted contradicts WEB untrusted → mark trusted as valid
+    - If no RAG available and WEB sources conflict → prefer trusted over untrusted
+    - If no conflicts → mark all as valid
+    
   expected_output: >
-    A valid JSON array containing ALL the JSON elements from {response_rag_crew},
-    and add a field "is_valid" to each element that is true if the cross-checking do not find any conflict, false otherwise
-    A valid JSON array containing:
-      1. ALL the JSON elements from {response_rag_crew}
-      Each element MUST include:
-       - "is_valid": true/false, true if the cross-checking do not find any conflict, false otherwise
-       DO NOT MODIFY ANY OTHER FIELD OF THE INPUT JSON.
-       DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
-       DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
+    A valid JSON array containing ALL elements from {response_rag_crew} with 
+    three new fields added to each element:
+    
+    Required new fields:
+    - "is_valid": boolean
+      * true = this source should be used to answer {user_question}
+      * false = this source conflicts with a higher-priority source
+
+    DO NOT MODIFY ANY OTHER FIELD OF THE INPUT JSON.
+    DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
+    DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
   agent: validator
   output_file: outputs/answer_writer/validated_results.txt
     
 
 writing_task:
-    description: >
-      Based on the retrieved documents and the web search results from the previous tasks that find in validator_task , write a comprehensive scientific answer to the query: {user_question}.
+  description: >
+    Write a clear, accurate response to {user_question} using validated information from validator_task.
     
-      Requirements:
-      - Use formal scientific language
-      - Synthesize information from multiple chunks and web research coherently 
-      - Maintain accuracy and cite sources when making specific claims
-      - Structure the answer logically (introduction, main points, conclusion if appropriate)
-      - Use appropriate technical terminology
-      - Ensure clarity while maintaining scientific rigor
-      
-    expected_output: >
-      A well-structured scientific answer that:
-      - Directly addresses the query
-      - Synthesizes information from retrieved chunks
-      - Uses formal scientific language
-      - Is clear, accurate, and properly formatted
-      - Includes source attribution where appropriate
-    agent: answer_writer
-    context: 
-      - validator_task  # ← Usa output del task precedente
-    output_file: outputs/answer_writer/complete_answer.md
+    CRITICAL: Use ONLY sources where is_valid=true. Ignore all is_valid=false sources.
+    
+    Structure your response:
+    
+    1. MAIN ANSWER
+       - Directly address {user_question}
+       - Use information from is_valid=true sources only
+       - Cite sources inline: [Source: document/webpage title]
+       - Distinguish: [RAG: title] for documents vs [Web: title] for web sources
+       - Bold critical info: **dates**, **amounts**, **deadlines**
+    
+    2. SOURCES SECTION
+       - List all sources used with full URLs (for web) or document names (for RAG)
+       - Format: "- [RAG/Web] Title: URL/document_id"
+    
+    
+  expected_output: >
+    A Markdown-formatted response with:
+    
+    # Answer to: [restate user_question]
+    
+    [Main answer with inline citations, bold for critical info]
+    
+    ## Sources Used
+    - [RAG/Web] Title: URL or document reference
+    
+    ## Conflicts Resolved (if applicable)
+    [Explanation of resolved conflicts]
+    
+    ---
+    
+    Requirements:
+    - Professional but accessible language (not overly academic)
+    - Actionable information prioritized
+    - All critical data (dates, amounts) clearly visible
+    - Transparency on source types and conflicts
+    
+  agent: answer_writer
+  context: 
+    - validator_task
+  output_file: outputs/answer_writer/complete_answer.md
 
+
+#    3. CONFLICTS RESOLVED (if any conflict_detected=true exists)
+    #    - Briefly explain what conflicts were found
+    #    - State which source was preferred and why (based on priority hierarchy)
+    #    - Example: "Note: Different deadline dates found. Document source (30 Nov) 
+    #      preferred over web source (31 Dec)."
+    
+    # Omit section 3 if no conflicts detected.
 

@@ -161,7 +161,7 @@ class RagFlow(Flow[FlowState]):
             .kickoff(inputs={
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
-                "white_list": white_list
+                "main_topic": main_topic
                 })
         )
 

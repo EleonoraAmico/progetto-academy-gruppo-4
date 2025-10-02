@@ -1,47 +1,60 @@
 rag_retriever_task:
   description: >
-    Call the "Rag tool qdrant" to obtain information relevant to this query: {user_question}.
+    Use the rag_tool_qdrant tool to retrieve information relevant to this query: {user_question} and topic: {topic}.
     This tool retrieves the top relevant chunks from a RAG and return them as:
     
-    - Full text content of each chunk
-    - Source metadata (_id, source, title)
-    - Similarity scores
-    - All available metadata for evaluation
+    The tool will return chunks from the vector database with their metadata and similarity scores.
     
-    Do NOT synthesize anything and do not write a direct response to the query - retrieve just the documents chunks and provide a response as described in the expected output.
+    Your job is to take the raw results and format each chunk exactly as specified in the expected output.
+    
+    DO NOT synthesize, summarize, or answer the query directly.
+    DO NOT add interpretations or additional text.
+    ONLY retrieve and format the document chunks.
   expected_output: >
-    A JSON of relevant text chunks results that directly address the query {user_question}. For each search result, provide:
-    - "origin" field that contains the "RAG" string
-    - "title" field that contains the document title
-    - "similarity" field that contains the similarity score
-    - "source" field with the chunk id
-    - "content" with the text retrieved chunk
-    - "is_trusted" field set to true
+    A valid JSON array containing the retrieved chunks. Each chunk must be a JSON object with exactly these fields:
+    {
+      "origin": "RAG",
+      "title": "<document title from metadata>",
+      "similarity": <similarity score as number>,
+      "source": "<chunk _id>",
+      "content": "<full retrieved text chunk>",
+      "is_trusted": true
+    }
     DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
     DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
   agent: rag_retriever
 
 web_research_task:
   description: >
-    Conduct targeted web searches with to find additional relevant information that complements the documents retrieved from the rag_retriever_task.
+    Use the SerperDevTool to find additional relevant information that complements the documents retrieved from rag_retriever_task.
+    
+    Search query should focus on: {main_topic}, {user_question} and {topic}
     
     Requirements:
-    - Focus on finding authoritative sources that provide additional context or details related to the user's question {user_question}
-    - Ensure that the information you find is accurate, relevant, and enhances the overall understanding of the topic at hand.
+    - Conduct 2-3 targeted web searches with different query formulations
+    - Select the top 3-5 most authoritative and relevant results
+    - Extract meaningful content excerpts (avoid snippets that are too short)
+    - Avoid duplicate content: if a web result covers the same information as a RAG result, skip it.
+    
+    Final step: Merge ALL results from rag_retriever_task with your new web results.
+    
   expected_output: >
     A valid JSON array containing:
-    1. ALL the JSON elements from rag_retriever_task (with origin="RAG")
+    1. ALL original elements from rag_retriever_task (with origin="RAG") - 
+       copied exactly without modifications
     2. NEW elements from web search (with origin="WEB")
-       Each web search result MUST include:
-     - "origin": "WEB"
-     - "title": <webpage title>
-     - "similarity" set to 1.0
-     - "source": <URL>
-     - "content": <relevant text excerpt>
-     - "is_trusted" field set to false
-     DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
-     DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
-     
+    
+    Each web search element must have this structure:
+    {
+      "origin": "WEB",
+      "title": "<webpage title>",
+      "similarity": 0.0,
+      "source": "<full URL>",
+      "content": "<relevant text excerpt, 2-3 paragraphs>",
+      "is_trusted": <false>
+    }
+    DO NOT ADD ANY ADDITIONAL INFORMATION OR FIELDS BESIDES THE REQUESTED JSON.
+    DO NOT ADD "```json" OR ANY OTHER MARKDOWN SYNTAX.
   agent: web_researcher
   context: 
     - rag_retriever_task  # ← Usa output del task precedente

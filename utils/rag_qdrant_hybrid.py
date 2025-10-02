@@ -134,9 +134,11 @@ from qdrant_client.models import (
 )
 # import tempfile
 # import shutil
-from prompt_injection import sanitize_documents
+from utils.prompt_injection import sanitize_documents
 
 import pdfplumber
+
+
 
 
 
