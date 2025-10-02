@@ -132,10 +132,13 @@ from qdrant_client.models import (
     SearchParams,
     PointStruct,
 )
-import fitz  
-import tempfile
-import shutil
-from utils.prompt_injection import sanitize_documents
+# import tempfile
+# import shutil
+from prompt_injection import sanitize_documents
+
+import pdfplumber
+
+
 
 # =========================
 # Configurazione
@@ -562,76 +565,132 @@ def simulate_corpus() -> List[Document]:
     ]
     return docs
 
-def convert_pdf_to_markdown(pdf_path: Path) -> Path:
+def pdf_to_markdown_with_tables(pdf_path: Path) -> str:
     """
-    Converts a PDF to a Markdown (.md) file stored in a temporary location.
-    
-    Returns:
-        Path to the generated markdown file.
+    Extract text and tables from a PDF file, return a combined markdown string.
+    Tables are converted to markdown tables.
     """
-    temp_md_path = tempfile.NamedTemporaryFile(delete=False, suffix=".md").name
-    try:
-        doc = fitz.open(str(pdf_path))
-        with open(temp_md_path, "w", encoding="utf-8") as md_file:
-            for i, page in enumerate(doc):
-                text = page.get_text()
-                md_file.write(f"## Page {i+1}\n\n")
-                md_file.write(text.strip())
-                md_file.write("\n\n---\n\n")
-    except Exception as e:
-        raise RuntimeError(f"Errore durante la conversione del PDF '{pdf_path}': {e}")
-    
-    return Path(temp_md_path)
-
+    combined_md = []
+ 
+    with pdfplumber.open(str(pdf_path)) as pdf:
+        for i, page in enumerate(pdf.pages):
+            combined_md.append(f"## Page {i+1}\n")
+            # Extract page text
+            text = page.extract_text() or ""
+            combined_md.append(text.strip())
+            combined_md.append("\n")
+ 
+            # Extract tables on page
+            tables = page.extract_tables()
+            for table in tables:
+                if not table:
+                    continue
+                # Convert table (list of lists) to markdown table
+                # First row is header
+                header = table[0]
+                rows = table[1:]
+                # Build markdown table string
+                md_table = []
+                md_table.append("| " + " | ".join(str(cell) if cell else "" for cell in header) + " |")
+                md_table.append("|" + "|".join("---" for _ in header) + "|")
+                for row in rows:
+                    md_table.append("| " + " | ".join(str(cell) if cell else "" for cell in row) + " |")
+                combined_md.append("\n".join(md_table))
+                combined_md.append("\n")
+            combined_md.append("---\n")
+ 
+    return "\n".join(combined_md)
+ 
 def load_real_documents_from_folder(folder_path: str) -> List[Document]:
     """
     Load `.txt`, `.md`, and `.pdf` files recursively into `Document` objects.
-    
-    Converts `.pdf` files to markdown before loading.
-
+    For PDFs, extract text and tables using pdfplumber and convert to markdown text.
+ 
     Args:
         folder_path (str): Directory containing text files.
-
+ 
     Returns:
         List[Document]: Loaded documents with metadata['source'] set to original filename.
     """
     folder = Path(folder_path)
     documents: List[Document] = []
-
+ 
     if not folder.exists() or not folder.is_dir():
         raise ValueError(f"La cartella '{folder_path}' non esiste o non è una directory.")
-
+ 
     for file_path in folder.glob("**/*"):
         ext = file_path.suffix.lower()
-
+ 
         if ext in [".txt", ".md"]:
-            loader_path = file_path
-        elif ext == ".pdf":
+            loader = TextLoader(str(file_path), encoding="utf-8")
             try:
-                loader_path = convert_pdf_to_markdown(file_path)
+                docs = loader.load()
             except Exception as e:
-                print(f"⚠️ Errore con '{file_path.name}': {e}")
+                print(f"⚠️ Errore caricando '{file_path.name}': {e}")
+                continue
+ 
+        elif ext == ".pdf":
+            try: 
+                markdown_content = pdf_to_markdown_with_tables(file_path)
+                # Create a single Document from this markdown content
+                docs = [Document(page_content=markdown_content, metadata={"source": file_path.name})]
+                # Salva il documento in markdown
+                with open(f"outputs/{file_path.name}.md", "w", encoding="utf-8") as f:
+                    f.write(markdown_content)
+            except Exception as e:
+                print(f"⚠️ Errore processando PDF '{file_path.name}': {e}")
                 continue
         else:
-            continue  # Skip unsupported file types
-
-        loader = TextLoader(str(loader_path), encoding="utf-8")
-        docs = loader.load()
-
-        for doc in docs:
-            # Set source to original file name, even for PDFs
-            doc.metadata["source"] = file_path.name
-
+            continue  # skip unsupported file types
+ 
+        # If docs from text or md file, set metadata
+        if ext in [".txt", ".md"]:
+            for doc in docs:
+                doc.metadata["source"] = file_path.name
+ 
         documents.extend(docs)
-
-        # Cleanup temporary markdown if it was created from a PDF
-        if ext == ".pdf" and loader_path.exists():
-            try:
-                loader_path.unlink()
-            except Exception as e:
-                print(f"⚠️ Impossibile eliminare il file temporaneo {loader_path}: {e}")
-
+ 
     return documents
+
+# def load_real_documents_from_folder(folder_path: str) -> List[Document]:
+#     """
+#     Load `.txt`, `.md`, and `.pdf` files recursively into `Document` objects.
+#     Uses PyPDFLoader for PDFs and TextLoader for text files.
+ 
+#     Args:
+#         folder_path (str): Directory containing text files.
+ 
+#     Returns:
+#         List[Document]: Loaded documents with metadata['source'] set to original filename.
+#     """
+#     folder = Path(folder_path)
+#     documents: List[Document] = []
+ 
+#     if not folder.exists() or not folder.is_dir():
+#         raise ValueError(f"La cartella '{folder_path}' non esiste o non è una directory.")
+ 
+#     for file_path in folder.glob("**/*"):
+#         ext = file_path.suffix.lower()
+ 
+#         if ext in [".txt", ".md"]:
+#             loader = TextLoader(str(file_path), encoding="utf-8")
+#         elif ext == ".pdf":
+#             loader = PyPDFLoader(str(file_path))
+#         else:
+#             continue  # skip unsupported file types
+ 
+#         try:
+#             docs = loader.load()
+#         except Exception as e:
+#             print(f"⚠️ Errore caricando '{file_path.name}': {e}")
+#             continue
+ 
+#         for doc in docs:
+#             doc.metadata["source"] = file_path.name
+ 
+#         documents.extend(docs)
+ 
+#     return documents
 
 
 def split_documents(docs: List[Document], settings: Settings) -> List[Document]:

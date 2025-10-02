@@ -7,6 +7,9 @@ requires-python = ">=3.10,<3.14"
 dependencies = [
     "crewai[tools]>=0.193.2,<1.0.0",
     "ddgs>=9.6.0",
+    "fitz>=0.0.1.dev2",
+    "pdfplumber>=0.11.7",
+    "ragas>=0.3.5",
 ]
 
 [project.scripts]
