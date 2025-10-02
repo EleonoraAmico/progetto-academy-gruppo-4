@@ -376,6 +376,7 @@ class Settings:
     - Decrease if results seem too similar
     - Increase if results seem too diverse
     """
+    api_version: str = "AZURE_API_VERSION"
     
     # =========================
     # LLM Configuration (Optional)
@@ -410,7 +411,6 @@ class Settings:
     - LM Studio: OPENAI_API_KEY=lm-studio (can be any value)
     - Azure: OPENAI_API_KEY=your-azure-key
     """
-    
     lm_model_env: str = "MODEL"
     """
     Environment variable name for the specific LLM model to use.
@@ -426,6 +426,7 @@ class Settings:
     - LM Studio: LMSTUDIO_MODEL=llama-2-7b-chat
     - Ollama: LMSTUDIO_MODEL=llama2:7b
     """
+    lm_model_name = "gpt-4o"
 
 SETTINGS = Settings()
 
@@ -496,14 +497,15 @@ def get_llm(settings: Settings):
     try:
         base = os.getenv(settings.lm_base_env)
         key = os.getenv(settings.lm_key_env)
-        model_name = os.getenv(settings.lm_model_env)
+        model_name = SETTINGS.lm_model_name
+        api_version = os.getenv(settings.api_version)
         
         if not (base and key and model_name):
-            print("LLM not configured - skipping generation step")
+            print("LLM not configured because base or key not set correctly- skipping generation step")
             return None
             
         # Test the LLM connection before returning
-        llm = init_chat_model(model_name, model_provider="openai")
+        llm = init_chat_model(model_name, model_provider="azure_openai", api_version=api_version, api_key=key, azure_endpoint=base)
         # Simple test to verify the LLM works
         test_response = llm.invoke("test")
         if test_response:
@@ -1210,6 +1212,65 @@ def build_rag_chain(llm):
         | StrOutputParser()
     )
     return chain
+
+def get_contexts_for_question(client, settings, embeddings, question: str, k: int) -> List[str]:
+    """Return the top-k document chunks used as context for a question.
+    
+    Retrieves relevant document chunks for a given question using hybrid search
+    and extracts only the text content for use as context in RAG evaluation.
+    
+    Args:
+        client: Qdrant client for database operations.
+        settings: Configuration object with search parameters.
+        embeddings: Embeddings model for query encoding.
+        question (str): Question to find relevant context for.
+        k (int): Number of context chunks to retrieve. Range: [1, 100].
+    
+    Returns:
+        List[str]: List of text strings representing the most relevant
+            document chunks for the question.
+    
+    Example:
+        >>> client = get_qdrant_client(Settings())
+        >>> settings = Settings()
+        >>> embeddings = get_embeddings(settings)
+        >>> contexts = get_contexts_for_question(client, settings, embeddings, "What is AI?", 3)
+        >>> len(contexts) <= 3
+        True
+        >>> all(isinstance(ctx, str) for ctx in contexts)
+        True
+    """
+    docs = hybrid_search(client, settings, question, embeddings)
+    return [d.payload.get('text', '') for d in docs]
+
+def extract_context_texts(points: Iterable[Any]) -> List[str]:
+    """Extract individual context texts from Qdrant points for RAGAS evaluation.
+    
+    Extracts text content from Qdrant points for use in RAGAS (RAG Assessment)
+    evaluation metrics. Specifically designed to provide context texts for
+    evaluating retrieval quality.
+    
+    Args:
+        points (Iterable[Any]): Iterable of Qdrant points with payload containing
+            'text' field.
+    
+    Returns:
+        List[str]: List of text strings extracted from the points' payloads.
+    
+    Example:
+        >>> class MockPoint:
+        ...     def __init__(self, text):
+        ...         self.payload = {"text": text}
+        >>> points = [MockPoint("Context 1"), MockPoint("Context 2")]
+        >>> texts = extract_context_texts(points)
+        >>> texts
+        ['Context 1', 'Context 2']
+    """
+    context_texts = []
+    for p in points:
+        pay = p.payload or {}
+        context_texts.append(pay.get('text', ''))
+    return context_texts
 
 def run_rag_qdrant(question: str) -> str:
     s = SETTINGS
