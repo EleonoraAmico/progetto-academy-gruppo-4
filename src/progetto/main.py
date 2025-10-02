@@ -7,7 +7,7 @@ from crewai.flow import Flow, listen, start, or_, router
 
 from progetto.crews.rag_crew.rag_crew import RagCrew
 from progetto.crews.answer_writer.answer_writer import AnswerWriter
-from crewai import LLM
+from crewai import LLM, CrewOutput
 import yaml 
 
 # Opik tracking
@@ -70,7 +70,10 @@ class FlowState(BaseModel):
     user_question: str = Field(default="", description="The question provided by the user")
     rag_crew_raw_response: str = Field(default="", description="The raw response from the RagCrew")
     rag_crew_validated_response: Optional[RagCrewResponseList] = Field(default=None, description="Validated search results")
-
+    web_validation_results: Optional[List[Dict[str, Any]]] = Field(default=None, description="Results after web source validation")
+    answer_writer_raw_response: str = Field(default="", description="The raw response from the AnswerWriter")
+    rag_crew: Optional[CrewOutput] = Field(default=None, description="To hold the RagCrew instance")
+    answer_writer: Optional[CrewOutput] = Field(default=None, description="To hold the AnswerWriter instance")
 
 class RagFlow(Flow[FlowState]):
     """Conversation flow to validate and answer topic-specific questions.
@@ -105,8 +108,12 @@ class RagFlow(Flow[FlowState]):
         """
         print("Validating the question and the sector.")
 
+        # inlne Pydantic class for LLM response validation
+        class TopicValidation(BaseModel):
+            is_topic_related: bool = Field(description="Whether the question and topic are relevant")
+
         # Initialize the LLM
-        llm = LLM(model="azure/gpt-4o", response_format=FlowState)
+        llm = LLM(model="azure/gpt-4o", response_format=TopicValidation)
 
         # Create the messages for the outline
         messages = [
@@ -120,7 +127,7 @@ class RagFlow(Flow[FlowState]):
             - the question "{self.state.user_question}" and the topic "{self.state.topic}" are relevant to {main_topic}. 
             - the topic "{self.state.topic}" is related to one of these topics: {', '.join(allowed_topics)}.
             Italian translations are accepted.
-            Respond strictly with a JSON string in the style of provided JSONResponse format without any kind of other extra text rather than the json.
+            Respond strictly with a JSON string in the style of provided FlowState format without any kind of other extra text rather than the json.
             """}
         ]
 
@@ -136,7 +143,8 @@ class RagFlow(Flow[FlowState]):
             "allowed_topics": allowed_topics,
             "user_topic": self.state.topic,
             "user_question": self.state.user_question,
-            "is_topic_related": self.state.is_topic_related,}
+            "is_topic_related": self.state.is_topic_related
+            }
         return payload
 
     @router(process_topic)
@@ -153,27 +161,25 @@ class RagFlow(Flow[FlowState]):
     def process_rag(self):
         """Execute the RAG crew to answer a validated question.
         """
-        with open('utils/white_list.yaml', 'r') as file:
-            white_list = yaml.safe_load(file)
         rag_crew = (
             RagCrew()
             .crew()
             .kickoff(inputs={
                 "user_question": self.state.user_question,
-                "topic": self.state.topic,
-                "white_list": white_list
+                "topic": self.state.topic
                 })
         )
 
+        self.state.rag_crew = rag_crew
         self.state.rag_crew_raw_response = rag_crew.raw
         
         payload = {
             "rag_crew": rag_crew,
-                "user_question": self.state.user_question,
-                "topic": self.state.topic,
-                "is_about_topic": self.state.is_topic_related,
-                "response_rag_crew": rag_crew.raw
-            }
+            "user_question": self.state.user_question,
+            "topic": self.state.topic,
+            "is_about_topic": self.state.is_topic_related,
+            "response_rag_crew": rag_crew.raw
+        }
         
         return payload
 
@@ -202,7 +208,7 @@ class RagFlow(Flow[FlowState]):
             return "JSON not valid"
 
     @listen("JSON valid")
-    def process_web_site_validation(self, payload: Dict[str, Any]):
+    def process_web_site_validation(self):
         """Process the web site validation step with validated data."""
         # Usa i dati già validati
         validated_results = self.state.rag_crew_validated_response
@@ -221,61 +227,41 @@ class RagFlow(Flow[FlowState]):
                 updated_results.append(updated_result.dict())
             else:
                 updated_results.append(result.dict())
-        return updated_results
-       
 
-    
-    # @listen("JSON valid")
-    # def process_web_site_validation(self, payload: Dict[str, Any]):
-    #     """ Process the web site validation step. Check if the url is in white list"""
-    #     print("=======PROCESS WEB SITE=========")
-    #     print(payload["response_rag_crew"])
-    #     sources = json.loads(payload["response_rag_crew"])
-    #     with open(white_list_path, 'r') as file:
-    #         white_list_data = yaml.safe_load(file)
-    #         # Now white_list is directly a dict with name->url mapping
-    #         urls = list(white_list_data.get("white_list", {}).values())
-    #     for item in sources:
-    #         if item.get("origin") == "WEB":
-    #             item["is_trusted"] = any(url in item.get("source", "") for url in urls)
-    #     # payload["response_rag_crew"] = sources
-    #     return sources
-        
-
+        self.state.web_validation_results = updated_results
 
     @listen(process_web_site_validation)
-    def process_answer_writing(self, updated_results: List[Dict[str, Any]]):
-        # sources = json.loads(payload["response_rag_crew"])
+    def process_answer_writing(self):
         answer_writer = (
             AnswerWriter()
             .crew()
             .kickoff(inputs={
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
-                "response_rag_crew": updated_results
+                "response_rag_crew": self.state.web_validation_results
                 })
         )
-        # sources.update({"answer_writer_crew": answer_writer,
-        #         "final_answer_crew": answer_writer.raw
-        #     })
-        # return sources
 
-    # @listen(process_answer_writing)
-    # def finalize(self, payload: Dict[str, Any]):
-    #     return payload
+        self.state.answer_writer = answer_writer
+        self.state.answer_writer_raw_response = answer_writer.raw
+
+    @listen(process_answer_writing)
+    def finalize(self):
+        payload = {
+            "rag_crew": self.state.rag_crew,
+            "answer_writer": self.state.answer_writer,
+            "user_question": self.state.user_question,
+            "topic": self.state.topic,
+            "is_about_topic": self.state.is_topic_related,
+            "response_rag_crew": self.state.rag_crew_raw_response,
+            "validated_rag_crew": self.state.rag_crew_validated_response,
+            "web_validation_results": self.state.web_validation_results,
+            "answer_writer_raw_response": self.state.answer_writer_raw_response
+        }
+        return payload
 
 def kickoff():
-    """Start the ``RagFlow`` from the command line.
-
-    Returns:
-        None
-
-    Examples:
-        >>> # From Python
-        >>> kickoff()
-        >>> # From CLI
-        >>> # python -m rag_crew.main
-    """
+    """Start the ``RagFlow`` from the command line."""
     track_crewai(project_name="crewai-integration-rag_crew")
     rag_flow = RagFlow()
     rag_flow.kickoff()
@@ -283,6 +269,3 @@ def kickoff():
 
 if __name__ == "__main__":
     kickoff()
-
-#Peppa pig è un cane? 
-#Come definisco una lista? What are the application fields of Python?
