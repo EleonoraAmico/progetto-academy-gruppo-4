@@ -33,7 +33,7 @@ web_researcher:
     5. Format each web result as a JSON object with these fields:
        - origin: always "WEB"
        - title: webpage title
-       - similarity: null (web results don't have similarity scores)
+       - similarity: 0.0
        - source: full URL
        - content: relevant text excerpt (2-3 paragraphs max)
        - is_trusted: true 
