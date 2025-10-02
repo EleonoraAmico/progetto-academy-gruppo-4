@@ -102,7 +102,7 @@ from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-
+from langchain_core.documents import Document
 from langchain_community.document_loaders import TextLoader, PyPDFLoader
 
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel 
@@ -132,7 +132,9 @@ from qdrant_client.models import (
     SearchParams,
     PointStruct,
 )
-
+import fitz  
+import tempfile
+import shutil
 from utils.prompt_injection import sanitize_documents
 
 # =========================
@@ -558,27 +560,38 @@ def simulate_corpus() -> List[Document]:
     ]
     return docs
 
+def convert_pdf_to_markdown(pdf_path: Path) -> Path:
+    """
+    Converts a PDF to a Markdown (.md) file stored in a temporary location.
+    
+    Returns:
+        Path to the generated markdown file.
+    """
+    temp_md_path = tempfile.NamedTemporaryFile(delete=False, suffix=".md").name
+    try:
+        doc = fitz.open(str(pdf_path))
+        with open(temp_md_path, "w", encoding="utf-8") as md_file:
+            for i, page in enumerate(doc):
+                text = page.get_text()
+                md_file.write(f"## Page {i+1}\n\n")
+                md_file.write(text.strip())
+                md_file.write("\n\n---\n\n")
+    except Exception as e:
+        raise RuntimeError(f"Errore durante la conversione del PDF '{pdf_path}': {e}")
+    
+    return Path(temp_md_path)
+
 def load_real_documents_from_folder(folder_path: str) -> List[Document]:
-    """Load ``.txt`` and ``.md`` files recursively into ``Document`` objects.
+    """
+    Load `.txt`, `.md`, and `.pdf` files recursively into `Document` objects.
+    
+    Converts `.pdf` files to markdown before loading.
 
     Args:
         folder_path (str): Directory containing text files.
 
     Returns:
-        List[Document]: Loaded documents, each with ``metadata['source']`` set to filename.
-
-    Raises:
-        ValueError: If the folder does not exist or is not a directory.
-
-    Examples:
-        >>> import tempfile, pathlib
-        >>> tmp = tempfile.TemporaryDirectory()
-        >>> p = pathlib.Path(tmp.name) / 'a.txt'
-        >>> _ = p.write_text('hello')
-        >>> docs = load_real_documents_from_folder(tmp.name)
-        >>> len(docs) == 1 and docs[0].page_content == 'hello'
-        True
-        >>> pathlib.Path(tmp.name).rmdir()  # doctest: +ELLIPSIS
+        List[Document]: Loaded documents with metadata['source'] set to original filename.
     """
     folder = Path(folder_path)
     documents: List[Document] = []
@@ -587,19 +600,37 @@ def load_real_documents_from_folder(folder_path: str) -> List[Document]:
         raise ValueError(f"La cartella '{folder_path}' non esiste o non è una directory.")
 
     for file_path in folder.glob("**/*"):
-        if file_path.suffix.lower() not in [".txt", ".md"]:
-            continue  # ignora file non supportati
+        ext = file_path.suffix.lower()
 
-        loader = TextLoader(str(file_path), encoding="utf-8")
+        if ext in [".txt", ".md"]:
+            loader_path = file_path
+        elif ext == ".pdf":
+            try:
+                loader_path = convert_pdf_to_markdown(file_path)
+            except Exception as e:
+                print(f"⚠️ Errore con '{file_path.name}': {e}")
+                continue
+        else:
+            continue  # Skip unsupported file types
+
+        loader = TextLoader(str(loader_path), encoding="utf-8")
         docs = loader.load()
 
-        # Aggiunge il metadato 'source' per citazioni (es. nome del file)
         for doc in docs:
+            # Set source to original file name, even for PDFs
             doc.metadata["source"] = file_path.name
 
         documents.extend(docs)
 
+        # Cleanup temporary markdown if it was created from a PDF
+        if ext == ".pdf" and loader_path.exists():
+            try:
+                loader_path.unlink()
+            except Exception as e:
+                print(f"⚠️ Impossibile eliminare il file temporaneo {loader_path}: {e}")
+
     return documents
+
 
 def split_documents(docs: List[Document], settings: Settings) -> List[Document]:
     splitter = RecursiveCharacterTextSplitter(
