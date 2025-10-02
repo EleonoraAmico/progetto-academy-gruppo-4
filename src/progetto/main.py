@@ -166,7 +166,8 @@ class RagFlow(Flow[FlowState]):
             .crew()
             .kickoff(inputs={
                 "user_question": self.state.user_question,
-                "topic": self.state.topic
+                "topic": self.state.topic,
+                "main_topic": main_topic
                 })
         )
 

@@ -87,12 +87,14 @@ def main():
     # 4) Upsert chunks
     rag_qdrant_hybrid.upsert_chunks(client, s, chunks, embeddings)
     
-    questions = ["Qual è l'obiettivo O1 dell'intervento turismo cloud avs in Sardegna?"]
+    questions = ["Qual è l'obiettivo O1 dell'intervento turismo cloud avs in Sardegna?", ""]
     
     chain = rag_qdrant_hybrid.build_rag_chain(llm)
     
     ground_truth = {
-        questions[0]: "L'obiettivo O1 dell'intervento turismo cloud avs in Sardegna è sostenere fino al subentro di fornitori l'operatività dei sistemi informativi"
+        questions[0]: "L'obiettivo O1 dell'intervento turismo cloud avs in Sardegna è sostenere fino al subentro di fornitori l'operatività dei sistemi informativi", 
+        questions[1]: "Non ci sono informazioni rilevanti nei documenti caricati.",
+
     }
     
     # 6) Costruisci dataset per Ragas (stessi top-k del tuo retriever)
