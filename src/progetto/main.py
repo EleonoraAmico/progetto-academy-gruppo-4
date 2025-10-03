@@ -1,48 +1,38 @@
+"""Main entrypoint and flow definition for the RAG-based QA application.
+
+This module defines the `RagFlow` conversation flow, orchestrating topic
+validation, retrieval via `RagCrew`, optional web validation, and answer
+generation via `AnswerWriter`.
+"""
+
 import json
-from random import randint
-from typing import Any, List, Dict, Optional, Union
+from typing import Any, Dict, List, Optional
+
+import opik
+import yaml
+from crewai import CrewOutput, LLM
+from crewai.flow import Flow, listen, or_, router, start
+from opik.integrations.crewai import track_crewai
 from pydantic import BaseModel, Field, ValidationError
 
-from crewai.flow import Flow, listen, start, or_, router
-
-from progetto.crews.rag_crew.rag_crew import RagCrew
 from progetto.crews.answer_writer.answer_writer import AnswerWriter
-from crewai import LLM, CrewOutput
-import yaml 
+from progetto.crews.rag_crew.rag_crew import RagCrew
 
-# Opik tracking
-import opik
-from opik.integrations.crewai import track_crewai
 opik.configure(use_local=True)
 
 # Global Settings
-white_list_path = "utils/white_list.yaml"
-main_topic = "Calls for Proposals or Calls for Action"
-allowed_topics = ["Culture", "ICT", "Green Economy"]
-# main_topic = "python"
-# allowed_topics = ["python"]
+WHITE_LIST_PATH = "utils/white_list.yaml"
+MAIN_TOPIC = "Calls for Proposals or Calls for Action"
+ALLOWED_TOPICS = ["Culture", "ICT", "Green Economy"]
+# MAIN_TOPIC = "python"
+# ALLOWED_TOPICS = ["python"]
 
 class RagCrewResponseItem(BaseModel):
-    """Schema for the JSON response returned by the RagCrew.
-    The JSON response is expected to be similar to this structure:
-    [
-        {
-            "origin": "RAG",
-            "title": "01_intro_python.md",
-            "similarity": 0.82157665,
-            "source": "01_intro_python.md",
-            "content": "## Campi di applicazione\n- **Web Development**: framework come Django e Flask.\n- **Data Science**: librerie come NumPy, Pandas, Matplotlib.\n- **Automazione**: scripting e automazione di processi.\n- **Intelligenza Artificiale**: TensorFlow, PyTorch.\n- **Applicazioni Desktop**: interfacce grafiche con Tkinter, PyQt.\n\n## Esempio semplice\n```python\nprint(\"Ciao, mondo!\")\n```\n\nPython non accetta assolutamente bottle.",
-            "is_trusted": true
-        },
-        {
-            "origin": "WEB",
-            "title": "Python - Application Areas - Tutorials Point",
-            "similarity": 1.0,
-            "source": "https://www.tutorialspoint.com/python/python_application_areas.htm",
-            "content": "Python is used in Data Science, Machine Learning, Web Development, Computer Vision, Embedded Systems, Job Scheduling, GUI, Console, CAD, and Game Development.",
-            "is_trusted": false
-        }
-    ]
+    """Schema for a single result item returned by the RAG pipeline.
+
+    Fields include the origin (e.g., RAG or WEB), title, source identifier or
+    URL, content excerpt, similarity score, and whether the source is in the
+    whitelist.
     """
     origin: str = Field(description="The origin of the source, e.g., 'RAG' or 'WEB'")
     title: str = Field(description="The title of the source")
@@ -56,14 +46,7 @@ class RagCrewResponseList(BaseModel):
     results: List[RagCrewResponseItem] = Field(description="List of RAG Crew search results")
 
 class FlowState(BaseModel):
-    """State carried across the flow steps.
-
-    Attributes:
-        topic (str): The subject used to scope valid questions.
-        user_question (str): The last question provided by the user.
-        is_about_topic (bool): Result of the LLM validation step.
-        response_rag_crew (List[Dict[str, Any]]): The parsed response from the RagCrew.
-    """
+    """State carried across the flow steps."""
     topic: str = Field(default="", description="The topic for scoping questions")
     is_topic_related: bool = Field(default=False, description="Whether the question is about the topic")
     user_question: str = Field(default="", description="The question provided by the user")
@@ -88,16 +71,15 @@ class RagFlow(Flow[FlowState]):
     @start()
     def start(self):
         """The first step in the flow."""
-        return 
+        return
     
     @listen(or_(start, "Retry question"))
     def ask_question(self):
         """Prompt the user to provide a sector and a question relevant to the main topic."""
-        print(f"Provide the {main_topic} sector: ")
+        print(f"Provide the {MAIN_TOPIC} sector: ")
         self.state.topic = input("sector: ")
         print("Provide a question: ")
         self.state.user_question = input("question: ")
-        
 
     @listen(ask_question)
     def process_topic(self):
@@ -107,8 +89,9 @@ class RagFlow(Flow[FlowState]):
         """
         print("Validating the question and the sector.")
 
-        # inlne Pydantic class for LLM response validation
+        # inline Pydantic class for LLM response validation
         class TopicValidation(BaseModel):
+            """Response schema produced by the LLM for topic validation."""
             is_topic_related: bool = Field(description="Whether the question and topic are relevant")
 
         # Initialize the LLM
@@ -116,18 +99,27 @@ class RagFlow(Flow[FlowState]):
 
         # Create the messages for the outline
         messages = [
-            {"role": "system", "content": f"""
-             You are an assistant designed to evaluate whether a topic and a user question are relevant to 
-             {main_topic}, and provide an answer in a json format with a boolean field called 
-             is_topic_related.
-             """},
-            {"role": "user", "content": f"""
-            Evaluate if:
-            - the question "{self.state.user_question}" and the topic "{self.state.topic}" are relevant to {main_topic}. 
-            - the topic "{self.state.topic}" is related to one of these topics: {', '.join(allowed_topics)}.
-            Italian translations are accepted.
-            Respond strictly with a JSON string in the style of provided FlowState format without any kind of other extra text rather than the json.
-            """}
+            {
+                "role": "system",
+                "content": (
+                    "You are an assistant designed to evaluate whether a topic and a "
+                    "user question are relevant to "
+                    f"{MAIN_TOPIC}, and provide an answer in a JSON format with a "
+                    "boolean field called is_topic_related."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Evaluate if: \n"
+                    f"- the question \"{self.state.user_question}\" and the topic "
+                    f"\"{self.state.topic}\" are relevant to {MAIN_TOPIC}. \n"
+                    f"- the topic \"{self.state.topic}\" is related to one of these "
+                    f"topics: {', '.join(ALLOWED_TOPICS)}.\n"
+                    "Italian translations are accepted.\n"
+                    "Respond strictly with a JSON string containing only the JSON."
+                ),
+            },
         ]
 
         # Make the LLM call with JSON response format
@@ -138,8 +130,8 @@ class RagFlow(Flow[FlowState]):
         self.state.is_topic_related = llm_response.get("is_topic_related", False)
 
         payload = {
-            "main_topic": main_topic,
-            "allowed_topics": allowed_topics,
+            "main_topic": MAIN_TOPIC,
+            "allowed_topics": ALLOWED_TOPICS,
             "user_topic": self.state.topic,
             "user_question": self.state.user_question,
             "is_topic_related": self.state.is_topic_related
@@ -150,23 +142,26 @@ class RagFlow(Flow[FlowState]):
     def validate_question(self):
         """Route based on validation outcome."""
         if self.state.is_topic_related:
-            print(f"The question is relevant to the topic")
+            print("The question is relevant to the topic")
             return "Question valid"
-        else:
-            print(f"The question '{self.state.user_question}' is not about the topic '{self.state.topic}'. Please ask a relevant question.")
-            return "Retry question"
+        print(
+            (
+                f"The question '{self.state.user_question}' is not about the topic "
+                f"'{self.state.topic}'. Please ask a relevant question."
+            )
+        )
+        return "Retry question"
 
     @listen(or_("Question valid", "JSON not valid"))
     def process_rag(self):
-        """Execute the RAG crew to answer a validated question.
-        """
+        """Execute the RAG crew to answer a validated question."""
         rag_crew = (
             RagCrew()
             .crew()
             .kickoff(inputs={
                 "user_question": self.state.user_question,
                 "topic": self.state.topic,
-                "main_topic": main_topic
+                "main_topic": MAIN_TOPIC
                 })
         )
 
@@ -201,8 +196,8 @@ class RagFlow(Flow[FlowState]):
             self.state.rag_crew_validated_response = validated_results
             print(f"✅ Validation successful! Found {len(validated_results.results)} results")
             return "JSON valid"
-        except Exception as e:
-            print(f"❌ Validation failed: {e}")
+        except (json.JSONDecodeError, ValidationError, TypeError, ValueError) as err:
+            print(f"❌ Validation failed: {err}")
             # Puoi decidere se continuare con dati parziali o fermare il flow
             print("Invalid JSON structure from RagCrew, repeat the flow.")
             return "JSON not valid"
@@ -213,7 +208,7 @@ class RagFlow(Flow[FlowState]):
         # Usa i dati già validati
         validated_results = self.state.rag_crew_validated_response
         # Carica whitelist per validazione URL
-        with open(white_list_path, 'r') as file:
+        with open(WHITE_LIST_PATH, 'r', encoding='utf-8') as file:
             white_list_data = yaml.safe_load(file)
             trusted_domains = list(white_list_data.get("white_list", {}).values())
         # Aggiorna is_trusted per risultati web
@@ -221,7 +216,9 @@ class RagFlow(Flow[FlowState]):
         for result in validated_results.results:
             if result.origin == "WEB":
                 # Verifica se l'URL è nella whitelist
-                is_trusted = any(domain in result.source for domain in trusted_domains)
+                is_trusted = any(
+                    domain in result.source for domain in trusted_domains
+                )
                 # Crea nuovo oggetto con is_trusted aggiornato
                 updated_result = result.copy(update={"is_trusted": is_trusted})
                 updated_results.append(updated_result.dict())
@@ -232,6 +229,7 @@ class RagFlow(Flow[FlowState]):
 
     @listen(process_web_site_validation)
     def process_answer_writing(self):
+        """Execute the answer writer crew using validated web results."""
         answer_writer = (
             AnswerWriter()
             .crew()
@@ -260,6 +258,7 @@ class RagFlow(Flow[FlowState]):
 
     @listen(process_answer_writing)
     def finalize(self, payload: Dict[str, Any]):
+        """Return the aggregated payload at the end of the flow."""
         return payload
 
 def kickoff():
