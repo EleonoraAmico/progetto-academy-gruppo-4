@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>utils.ragas_evaluation &#8212; Project 4 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="utils.rag_qdrant_hybrid" href="utils_rag_qdrant_hybrid.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-utils.ragas_evaluation">
+<span id="utils-ragas-evaluation"></span><h1>utils.ragas_evaluation<a class="headerlink" href="#module-utils.ragas_evaluation" title="Link to this heading">¶</a></h1>
+<p>RAGAS evaluation helpers for the Qdrant-hybrid RAG pipeline.</p>
+<p>This module builds a dataset compatible with RAGAS metrics by running the
+project’s Qdrant-based hybrid retrieval pipeline and an LLM chain over a set of
+questions. It is intended for offline quality assessment of the RAG system.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.ragas_evaluation.build_ragas_dataset">
+<span class="sig-prename descclassname"><span class="pre">utils.ragas_evaluation.</span></span><span class="sig-name descname"><span class="pre">build_ragas_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">questions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chain</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">llm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ground_truth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/ragas_evaluation.html#build_ragas_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.ragas_evaluation.build_ragas_dataset" title="Link to this definition">¶</a></dt>
+<dd><p>Build a RAGAS-compatible dataset by running the RAG pipeline.</p>
+<p>For each question, this function retrieves contexts using the hybrid
+Qdrant utilities, formats them for the LLM chain, invokes the chain to get
+an answer, and assembles a row suitable for RAGAS evaluation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>questions</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – Questions to evaluate.</p></li>
+<li><p><strong>chain</strong> – LLM chain object. It may be rebuilt internally to ensure a fresh
+chain if required by downstream utilities.</p></li>
+<li><p><strong>client</strong> – Qdrant client instance used by the hybrid retriever.</p></li>
+<li><p><strong>s</strong> – Settings/config object used by the <cite>rag_qdrant_hybrid</cite> utilities.</p></li>
+<li><p><strong>embeddings</strong> – Embeddings client used by hybrid search.</p></li>
+<li><p><strong>llm</strong> – Chat model used by the RAG chain.</p></li>
+<li><p><strong>ground_truth</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>str</em><em>] </em><em>| </em><em>None</em>) – Optional mapping from question to
+reference answer (for correctness-related metrics).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Rows with keys:</dt><dd><ul class="simple">
+<li><p>’user_input’: the input question (str)</p></li>
+<li><p>’retrieved_contexts’: list of context strings (List[str])</p></li>
+<li><p>’response’: model-generated answer (str)</p></li>
+<li><p>’reference’: optional ground-truth answer (str)</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[dict]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.ragas_evaluation.main">
+<span class="sig-prename descclassname"><span class="pre">utils.ragas_evaluation.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/ragas_evaluation.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.ragas_evaluation.main" title="Link to this definition">¶</a></dt>
+<dd><p>Run an end-to-end RAGAS evaluation example.</p>
+<p>This routine prepares (or refreshes) the Qdrant collection, builds/loads
+embeddings and the LLM, constructs example questions and optional reference
+answers, generates the RAGAS dataset, runs selected metrics, prints a
+summary table, and writes ‘ragas_results.csv’ for inspection.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This function performs I/O and network calls (Qdrant, embeddings, LLM)
+and is intended to be executed as a script.</p>
+</div>
+</dd></dl>
+
+<table class="autosummary longtable docutils align-default">
+<tbody>
+</tbody>
+</table>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Project 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Project overview</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="main.html">Main flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crews.html">Crews</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+  <li><a href="utils.html">Utilities</a><ul>
+      <li>Previous: <a href="utils_rag_qdrant_hybrid.html" title="previous chapter">utils.rag_qdrant_hybrid</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/utils_ragas_evaluation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
