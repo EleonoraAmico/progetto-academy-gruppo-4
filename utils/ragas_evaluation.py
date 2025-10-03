@@ -1,3 +1,10 @@
+"""RAGAS evaluation helpers for the Qdrant-hybrid RAG pipeline.
+
+This module builds a dataset compatible with RAGAS metrics by running the
+project's Qdrant-based hybrid retrieval pipeline and an LLM chain over a set of
+questions. It is intended for offline quality assessment of the RAG system.
+"""
+
 import rag_qdrant_hybrid
 
 import sys
@@ -30,9 +37,29 @@ def build_ragas_dataset(
     llm,
     ground_truth: dict[str, str] | None = None,
 ):
-    """
-    Esegue la pipeline RAG per ogni domanda e costruisce il dataset per Ragas.
-    Ogni riga contiene: question, contexts, answer, (opzionale) ground_truth.
+    """Build a RAGAS-compatible dataset by running the RAG pipeline.
+
+    For each question, this function retrieves contexts using the hybrid
+    Qdrant utilities, formats them for the LLM chain, invokes the chain to get
+    an answer, and assembles a row suitable for RAGAS evaluation.
+
+    Args:
+        questions (List[str]): Questions to evaluate.
+        chain: LLM chain object. It may be rebuilt internally to ensure a fresh
+            chain if required by downstream utilities.
+        client: Qdrant client instance used by the hybrid retriever.
+        s: Settings/config object used by the `rag_qdrant_hybrid` utilities.
+        embeddings: Embeddings client used by hybrid search.
+        llm: Chat model used by the RAG chain.
+        ground_truth (dict[str, str] | None): Optional mapping from question to
+            reference answer (for correctness-related metrics).
+
+    Returns:
+        list[dict]: Rows with keys:
+            - 'user_input': the input question (str)
+            - 'retrieved_contexts': list of context strings (List[str])
+            - 'response': model-generated answer (str)
+            - 'reference': optional ground-truth answer (str)
     """
     dataset = []
     for q in questions:
@@ -63,6 +90,17 @@ def build_ragas_dataset(
 
 
 def main():
+    """Run an end-to-end RAGAS evaluation example.
+
+    This routine prepares (or refreshes) the Qdrant collection, builds/loads
+    embeddings and the LLM, constructs example questions and optional reference
+    answers, generates the RAGAS dataset, runs selected metrics, prints a
+    summary table, and writes 'ragas_results.csv' for inspection.
+
+    Note:
+        This function performs I/O and network calls (Qdrant, embeddings, LLM)
+        and is intended to be executed as a script.
+    """
     s = rag_qdrant_hybrid.SETTINGS
     
     s.collection = "documents"
