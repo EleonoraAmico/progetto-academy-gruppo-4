@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>utils.prompt_injection &#8212; Project 4 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="utils.rag_qdrant_hybrid" href="utils_rag_qdrant_hybrid.html" />
+    <link rel="prev" title="Utilities" href="utils.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-utils.prompt_injection">
+<span id="utils-prompt-injection"></span><h1>utils.prompt_injection<a class="headerlink" href="#module-utils.prompt_injection" title="Link to this heading">¶</a></h1>
+<p>Utilities for detecting simple prompt-injection patterns in documents.</p>
+<p>These helpers scan raw text and inline HTML for common injection techniques,
+including zero-width characters, invisible text (foreground≈background), and
+tiny fonts. Functions follow Google-style docstrings for Sphinx compatibility.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.detect_zero_width">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">detect_zero_width</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#detect_zero_width"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.detect_zero_width" title="Link to this definition">¶</a></dt>
+<dd><p>Detect zero-width characters in text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> (<em>str</em>) – Input text to scan.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of occurrences with keys <code class="docutils literal notranslate"><span class="pre">char</span></code> and <code class="docutils literal notranslate"><span class="pre">index</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[dict]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.hex_to_rgb">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">hex_to_rgb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hex_color</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#hex_to_rgb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.hex_to_rgb" title="Link to this definition">¶</a></dt>
+<dd><p>Convert hexadecimal color to RGB tuple.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>hex_color</strong> (<em>str</em>) – Color string like <code class="docutils literal notranslate"><span class="pre">&quot;#fff&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;#ffffff&quot;</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Parsed RGB tuple or <code class="docutils literal notranslate"><span class="pre">None</span></code> on error.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[Tuple[int, int, int]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.color_distance">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">color_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#color_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.color_distance" title="Link to this definition">¶</a></dt>
+<dd><p>Euclidean distance between two RGB colors.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>c1</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>, </em><em>int</em><em>]</em>) – First color.</p></li>
+<li><p><strong>c2</strong> (<em>Tuple</em><em>[</em><em>int</em><em>, </em><em>int</em><em>, </em><em>int</em><em>]</em>) – Second color.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Euclidean distance in RGB space.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.parse_color">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">parse_color</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">color_str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#parse_color"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.parse_color" title="Link to this definition">¶</a></dt>
+<dd><p>Parse CSS-like color value into RGB tuple.</p>
+<p>Supports <code class="docutils literal notranslate"><span class="pre">#hex</span></code> and <code class="docutils literal notranslate"><span class="pre">rgb(r,g,b)</span></code> syntaxes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>color_str</strong> (<em>str</em>) – Color string.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Parsed RGB or <code class="docutils literal notranslate"><span class="pre">None</span></code> when unknown.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[Tuple[int, int, int]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.detect_invisible_text">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">detect_invisible_text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">html</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#detect_invisible_text"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.detect_invisible_text" title="Link to this definition">¶</a></dt>
+<dd><p>Detect text with nearly invisible color contrast in inline-styled HTML.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>html</strong> (<em>str</em>) – HTML content snippet.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Alerts with tag preview, colors, and computed distance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[dict]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.detect_small_font">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">detect_small_font</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">html</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#detect_small_font"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.detect_small_font" title="Link to this definition">¶</a></dt>
+<dd><p>Detect tiny font sizes in inline-styled HTML.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>html</strong> (<em>str</em>) – HTML content snippet.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Alerts with tag preview and declared font size.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[dict]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.extract_inline_html_from_md">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">extract_inline_html_from_md</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">md_text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#extract_inline_html_from_md"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.extract_inline_html_from_md" title="Link to this definition">¶</a></dt>
+<dd><p>Extract inline HTML snippets from markdown text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>md_text</strong> (<em>str</em>) – Markdown content.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Extracted HTML fragments.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.detect_prompt_injection">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">detect_prompt_injection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">document</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#detect_prompt_injection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.detect_prompt_injection" title="Link to this definition">¶</a></dt>
+<dd><p>Detect simple prompt-injection signals in a LangChain document.</p>
+<p>The checks include zero-width characters and inline-HTML-based visibility
+issues such as invisible text and tiny fonts.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>document</strong> (<em>Document</em>) – LangChain document with <code class="docutils literal notranslate"><span class="pre">page_content</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary with keys <code class="docutils literal notranslate"><span class="pre">zero_width</span></code>, <code class="docutils literal notranslate"><span class="pre">invisible_text</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">small_font</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str, Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.prompt_injection.sanitize_documents">
+<span class="sig-prename descclassname"><span class="pre">utils.prompt_injection.</span></span><span class="sig-name descname"><span class="pre">sanitize_documents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">documents</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/prompt_injection.html#sanitize_documents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.prompt_injection.sanitize_documents" title="Link to this definition">¶</a></dt>
+<dd><p>Filter out documents exhibiting prompt-injection patterns.</p>
+<p>Each document is scanned with <a class="reference internal" href="#utils.prompt_injection.detect_prompt_injection" title="utils.prompt_injection.detect_prompt_injection"><code class="xref py py-func docutils literal notranslate"><span class="pre">detect_prompt_injection()</span></code></a>. If any
+signals are found or an error occurs, the document is skipped and a log
+entry is emitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>documents</strong> (<em>List</em><em>[</em><em>Document</em><em>]</em>) – Documents to check.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Documents considered safe.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Document]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<table class="autosummary longtable docutils align-default">
+<tbody>
+</tbody>
+</table>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Project 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Project overview</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="main.html">Main flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crews.html">Crews</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+  <li><a href="utils.html">Utilities</a><ul>
+      <li>Previous: <a href="utils.html" title="previous chapter">Utilities</a></li>
+      <li>Next: <a href="utils_rag_qdrant_hybrid.html" title="next chapter">utils.rag_qdrant_hybrid</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/utils_prompt_injection.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

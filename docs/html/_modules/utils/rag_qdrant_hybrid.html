@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>utils.rag_qdrant_hybrid &#8212; Project 4 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for utils.rag_qdrant_hybrid</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">RAG (Retrieval-Augmented Generation) Pipeline Implementation</span>
+
+<span class="sd">This module implements a complete RAG system that combines vector search, hybrid retrieval,</span>
+<span class="sd">and LLM generation to provide intelligent question answering over document collections.</span>
+
+<span class="sd">SYSTEM ARCHITECTURE:</span>
+<span class="sd">===================</span>
+
+<span class="sd">1. DOCUMENT PROCESSING LAYER:</span>
+<span class="sd">   - Document ingestion and chunking</span>
+<span class="sd">   - Text splitting with configurable overlap</span>
+<span class="sd">   - Metadata extraction and preservation</span>
+
+<span class="sd">2. VECTOR EMBEDDING LAYER:</span>
+<span class="sd">   - HuggingFace sentence transformers</span>
+<span class="sd">   - Configurable model selection (384-768 dimensions)</span>
+<span class="sd">   - GPU acceleration when available</span>
+
+<span class="sd">3. VECTOR DATABASE LAYER:</span>
+<span class="sd">   - Qdrant vector database with HNSW indexing</span>
+<span class="sd">   - Scalar quantization for memory optimization</span>
+<span class="sd">   - Full-text and keyword payload indexing</span>
+
+<span class="sd">4. HYBRID SEARCH LAYER:</span>
+<span class="sd">   - Semantic similarity search (vector-based)</span>
+<span class="sd">   - Text-based matching (BM25, keyword)</span>
+<span class="sd">   - Score fusion with configurable weights</span>
+<span class="sd">   - MMR diversification for result variety</span>
+
+<span class="sd">5. GENERATION LAYER:</span>
+<span class="sd">   - LLM integration (OpenAI, LM Studio, Ollama)</span>
+<span class="sd">   - RAG chain with source citations</span>
+<span class="sd">   - Graceful fallback to content display</span>
+
+<span class="sd">KEY FEATURES:</span>
+<span class="sd">============</span>
+
+<span class="sd">- HYBRID SEARCH: Combines semantic understanding with traditional text search</span>
+<span class="sd">- MMR DIVERSIFICATION: Reduces redundancy and improves information coverage</span>
+<span class="sd">- CONFIGURABLE PARAMETERS: Extensive tuning options for different use cases</span>
+<span class="sd">- ERROR HANDLING: Graceful degradation and informative error messages</span>
+<span class="sd">- PERFORMANCE OPTIMIZATION: HNSW indexing, quantization, payload indices</span>
+<span class="sd">- SCALABILITY: Designed for small to medium document collections</span>
+
+<span class="sd">USE CASES:</span>
+<span class="sd">==========</span>
+
+<span class="sd">- Technical Documentation Search: High-precision retrieval with semantic understanding</span>
+<span class="sd">- Research &amp; Knowledge Management: Diverse information gathering and synthesis</span>
+<span class="sd">- Customer Support: Intelligent FAQ and documentation search</span>
+<span class="sd">- Content Discovery: Exploratory search with result diversification</span>
+<span class="sd">- RAG Applications: Context retrieval for LLM generation</span>
+
+<span class="sd">PERFORMANCE CHARACTERISTICS:</span>
+<span class="sd">===========================</span>
+
+<span class="sd">- Query Latency: Sub-millisecond vector search, millisecond text search</span>
+<span class="sd">- Throughput: 1000+ queries/second for typical workloads</span>
+<span class="sd">- Memory Usage: 100MB-2GB for embedding models, scalable vector storage</span>
+<span class="sd">- Storage Efficiency: 4x reduction with scalar quantization</span>
+<span class="sd">- Scalability: Linear scaling with document count up to 100K+ documents</span>
+
+<span class="sd">CONFIGURATION OPTIONS:</span>
+<span class="sd">======================</span>
+
+<span class="sd">- Embedding Models: 384-768 dimensions, speed vs. quality trade-offs</span>
+<span class="sd">- Chunk Sizes: 200-1000 characters, precision vs. context trade-offs</span>
+<span class="sd">- Search Parameters: Alpha blending, text boost, MMR lambda</span>
+<span class="sd">- Database Settings: HNSW parameters, quantization, segment optimization</span>
+<span class="sd">- LLM Integration: OpenAI, LM Studio, Ollama, custom APIs</span>
+
+<span class="sd">DEPENDENCIES:</span>
+<span class="sd">=============</span>
+
+<span class="sd">Required:</span>
+<span class="sd">- qdrant-client: Vector database operations</span>
+<span class="sd">- langchain-huggingface: Embedding model integration</span>
+<span class="sd">- langchain: Document processing and LLM integration</span>
+<span class="sd">- numpy: Mathematical operations for MMR algorithm</span>
+
+<span class="sd">Optional:</span>
+<span class="sd">- CUDA: GPU acceleration for embedding generation</span>
+<span class="sd">- Environment variables: LLM API configuration</span>
+
+<span class="sd">AUTHOR: AI Assistant</span>
+<span class="sd">VERSION: 1.0</span>
+<span class="sd">LICENSE: MIT</span>
+<span class="sd">MAINTAINER: Development Team</span>
+
+<span class="sd">For questions, issues, or contributions, please refer to the project documentation.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dotenv</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_dotenv</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain.schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_openai</span><span class="w"> </span><span class="kn">import</span> <span class="n">AzureOpenAIEmbeddings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain.text_splitter</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecursiveCharacterTextSplitter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.documents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_community.document_loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextLoader</span><span class="p">,</span> <span class="n">PyPDFLoader</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.runnables</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunnablePassthrough</span><span class="p">,</span> <span class="n">RunnableLambda</span><span class="p">,</span> <span class="n">RunnableParallel</span> 
+<span class="kn">from</span><span class="w"> </span><span class="nn">ddgs</span><span class="w"> </span><span class="kn">import</span> <span class="n">DDGS</span>
+<span class="c1">#from documents_parsing_utilits import ddgs_search</span>
+
+<span class="c1"># LangChain Core components for prompt/chain construction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.prompts</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatPromptTemplate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.output_parsers</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrOutputParser</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain_core.runnables</span><span class="w"> </span><span class="kn">import</span> <span class="n">RunnablePassthrough</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">langchain.chat_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">init_chat_model</span>
+
+<span class="c1"># Qdrant vector database client and models</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qdrant_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">QdrantClient</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">qdrant_client.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Distance</span><span class="p">,</span>
+    <span class="n">VectorParams</span><span class="p">,</span>
+    <span class="n">HnswConfigDiff</span><span class="p">,</span>
+    <span class="n">OptimizersConfigDiff</span><span class="p">,</span>
+    <span class="n">ScalarQuantization</span><span class="p">,</span>
+    <span class="n">ScalarQuantizationConfig</span><span class="p">,</span>
+    <span class="n">PayloadSchemaType</span><span class="p">,</span>
+    <span class="n">FieldCondition</span><span class="p">,</span>
+    <span class="n">MatchValue</span><span class="p">,</span>
+    <span class="n">MatchText</span><span class="p">,</span>
+    <span class="n">Filter</span><span class="p">,</span>
+    <span class="n">SearchParams</span><span class="p">,</span>
+    <span class="n">PointStruct</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="c1"># import tempfile</span>
+<span class="c1"># import shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">utils.prompt_injection</span><span class="w"> </span><span class="kn">import</span> <span class="n">sanitize_documents</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pdfplumber</span>
+
+
+
+
+
+<span class="c1"># =========================</span>
+<span class="c1"># Configurazione</span>
+<span class="c1"># =========================</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Settings">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.Settings">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Settings</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Comprehensive configuration settings for the RAG pipeline.</span>
+<span class="sd">    </span>
+<span class="sd">    This class centralizes all configurable parameters, allowing easy tuning</span>
+<span class="sd">    of the system&#39;s behavior without modifying the core logic.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># =========================</span>
+    <span class="c1"># Qdrant Vector Database Configuration</span>
+    <span class="c1"># =========================</span>
+    <span class="n">qdrant_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;http://localhost:6333&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Qdrant server URL. </span>
+<span class="sd">    - Default: Local development instance</span>
+<span class="sd">    - Production: Use your Qdrant cloud URL or server address</span>
+<span class="sd">    - Alternative: Can be overridden via environment variable QDRANT_URL</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rag_chunks&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Collection name for storing document chunks and vectors.</span>
+<span class="sd">    - Naming convention: Use descriptive names like &#39;company_docs&#39;, &#39;research_papers&#39;</span>
+<span class="sd">    - Multiple collections: Can create separate collections for different document types</span>
+<span class="sd">    - Cleanup: Old collections can be dropped and recreated for fresh indexing</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># =========================</span>
+    <span class="c1"># Embedding Model Configuration</span>
+    <span class="c1"># =========================</span>
+    <span class="n">embedding_model_name</span><span class="o">=</span><span class="s2">&quot;text-embedding-ada-002&quot;</span>
+
+    <span class="c1"># hf_model_name: str = &quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    HuggingFace sentence transformer model for generating embeddings.</span>
+<span class="sd">    </span>
+<span class="sd">    Model Options &amp; Trade-offs:</span>
+<span class="sd">    - all-MiniLM-L6-v2: 384 dimensions, fast, good quality, balanced choice</span>
+<span class="sd">    - all-MiniLM-L12-v2: 768 dimensions, slower, higher quality, better for complex queries</span>
+<span class="sd">    - all-mpnet-base-v2: 768 dimensions, excellent quality, slower inference</span>
+<span class="sd">    - paraphrase-multilingual-MiniLM-L12-v2: 768 dimensions, multilingual support</span>
+<span class="sd">    </span>
+<span class="sd">    Dimension Impact:</span>
+<span class="sd">    - Lower dimensions (384): Faster search, less memory, slightly lower accuracy</span>
+<span class="sd">    - Higher dimensions (768+): Better accuracy, slower search, more memory usage</span>
+<span class="sd">    </span>
+<span class="sd">    Performance Considerations:</span>
+<span class="sd">    - L6 models: ~2-3x faster than L12 models</span>
+<span class="sd">    - L12 models: ~10-15% better semantic understanding</span>
+<span class="sd">    - Base models: Good balance between speed and quality</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># =========================</span>
+    <span class="c1"># Document Chunking Configuration</span>
+    <span class="c1"># =========================</span>
+    <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">700</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maximum number of characters per document chunk.</span>
+<span class="sd">    </span>
+<span class="sd">    Chunk Size Trade-offs:</span>
+<span class="sd">    - Small chunks (200-500): Better precision, more granular retrieval, higher storage overhead</span>
+<span class="sd">    - Medium chunks (500-1000): Balanced precision and context, recommended for most use cases</span>
+<span class="sd">    - Large chunks (1000+): Better context preservation, lower precision, fewer chunks to manage</span>
+<span class="sd">    </span>
+<span class="sd">    Optimal Sizing Guidelines:</span>
+<span class="sd">    - Technical documents: 500-800 characters (preserve technical context)</span>
+<span class="sd">    - General text: 700-1000 characters (good balance)</span>
+<span class="sd">    - Conversational text: 300-600 characters (preserve dialogue flow)</span>
+<span class="sd">    - Code/structured data: 200-500 characters (preserve logical units)</span>
+<span class="sd">    </span>
+<span class="sd">    Impact on Retrieval:</span>
+<span class="sd">    - Smaller chunks: Higher recall, lower precision, more relevant snippets</span>
+<span class="sd">    - Larger chunks: Lower recall, higher precision, more complete context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">chunk_overlap</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">120</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Number of characters to overlap between consecutive chunks.</span>
+<span class="sd">    </span>
+<span class="sd">    Overlap Strategy:</span>
+<span class="sd">    - No overlap (0): Clean separation, may miss context at boundaries</span>
+<span class="sd">    - Small overlap (50-150): Preserves context, minimal redundancy</span>
+<span class="sd">    - Large overlap (200+): Maximum context preservation, higher storage cost</span>
+<span class="sd">    </span>
+<span class="sd">    Optimal Overlap Guidelines:</span>
+<span class="sd">    - Technical content: 100-200 characters (preserve technical terms)</span>
+<span class="sd">    - General text: 100-150 characters (good balance)</span>
+<span class="sd">    - Conversational: 50-100 characters (preserve dialogue context)</span>
+<span class="sd">    - Code: 50-100 characters (preserve function boundaries)</span>
+<span class="sd">    </span>
+<span class="sd">    Storage Impact:</span>
+<span class="sd">    - 0% overlap: Base storage requirement</span>
+<span class="sd">    - 20% overlap: ~20% increase in storage</span>
+<span class="sd">    - 50% overlap: ~50% increase in storage</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># =========================</span>
+    <span class="c1"># Hybrid Search Configuration</span>
+    <span class="c1"># =========================</span>
+    <span class="n">top_n_semantic</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Number of top semantic search candidates to retrieve initially.</span>
+<span class="sd">    </span>
+<span class="sd">    Semantic Search Candidates:</span>
+<span class="sd">    - Low values (10-20): Fast retrieval, may miss relevant results</span>
+<span class="sd">    - Medium values (30-50): Good balance between speed and recall</span>
+<span class="sd">    - High values (100+): Maximum recall, slower performance</span>
+<span class="sd">    </span>
+<span class="sd">    Performance Impact:</span>
+<span class="sd">    - Retrieval time: Linear increase with candidate count</span>
+<span class="sd">    - Memory usage: Linear increase with candidate count</span>
+<span class="sd">    - Quality: Diminishing returns beyond 50-100 candidates</span>
+<span class="sd">    </span>
+<span class="sd">    Tuning Guidelines:</span>
+<span class="sd">    - Small collections (&lt;1000 docs): 20-30 candidates</span>
+<span class="sd">    - Medium collections (1000-10000 docs): 30-50 candidates</span>
+<span class="sd">    - Large collections (10000+ docs): 50-100 candidates</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">top_n_text</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maximum number of text-based matches to consider for hybrid fusion.</span>
+<span class="sd">    </span>
+<span class="sd">    Text Search Scope:</span>
+<span class="sd">    - Low values (50): Fast text filtering, may miss relevant matches</span>
+<span class="sd">    - Medium values (100): Good balance between speed and coverage</span>
+<span class="sd">    - High values (200+): Maximum text coverage, slower performance</span>
+<span class="sd">    </span>
+<span class="sd">    Hybrid Search Strategy:</span>
+<span class="sd">    - Text search acts as a pre-filter for semantic results</span>
+<span class="sd">    - Higher values improve the quality of text-semantic fusion</span>
+<span class="sd">    - Optimal value depends on collection size and query complexity</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">final_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Final number of results to return after all processing steps.</span>
+<span class="sd">    </span>
+<span class="sd">    Result Count Considerations:</span>
+<span class="sd">    - User experience: 3-5 results for simple queries, 5-10 for complex ones</span>
+<span class="sd">    - Context window: Align with LLM context limits (e.g., 6-8 chunks for GPT-3.5)</span>
+<span class="sd">    - Diversity: Higher values allow MMR to select more diverse results</span>
+<span class="sd">    </span>
+<span class="sd">    LLM Integration:</span>
+<span class="sd">    - GPT-3.5: 6-8 chunks typically fit in context</span>
+<span class="sd">    - GPT-4: 8-12 chunks can be processed</span>
+<span class="sd">    - Claude: 6-10 chunks work well</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Weight for semantic similarity in hybrid score fusion (0.0 to 1.0).</span>
+<span class="sd">    </span>
+<span class="sd">    Alpha Parameter Behavior:</span>
+<span class="sd">    - alpha = 0.0: Pure text-based ranking (BM25, keyword matching)</span>
+<span class="sd">    - alpha = 0.5: Equal weight for semantic and text relevance</span>
+<span class="sd">    - alpha = 0.75: Semantic similarity prioritized (current setting)</span>
+<span class="sd">    - alpha = 1.0: Pure semantic ranking (cosine similarity only)</span>
+<span class="sd">    </span>
+<span class="sd">    Use Case Recommendations:</span>
+<span class="sd">    - Technical queries: 0.7-0.9 (semantic understanding important)</span>
+<span class="sd">    - Factual queries: 0.5-0.7 (balanced approach)</span>
+<span class="sd">    - Keyword searches: 0.3-0.5 (text matching more important)</span>
+<span class="sd">    - Conversational queries: 0.6-0.8 (semantic context matters)</span>
+<span class="sd">    </span>
+<span class="sd">    Tuning Strategy:</span>
+<span class="sd">    - Start with 0.75 for general use</span>
+<span class="sd">    - Increase if semantic results seem irrelevant</span>
+<span class="sd">    - Decrease if text matching is too weak</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">text_boost</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.20</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Additional score boost for results that match both semantic and text criteria.</span>
+<span class="sd">    </span>
+<span class="sd">    Text Boost Mechanism:</span>
+<span class="sd">    - Applied additively to fused scores</span>
+<span class="sd">    - Encourages results that satisfy both search strategies</span>
+<span class="sd">    - Helps surface highly relevant content that matches multiple criteria</span>
+<span class="sd">    </span>
+<span class="sd">    Boost Value Guidelines:</span>
+<span class="sd">    - Low boost (0.1-0.2): Subtle preference for hybrid matches</span>
+<span class="sd">    - Medium boost (0.2-0.4): Strong preference for hybrid matches</span>
+<span class="sd">    - High boost (0.5+): Heavy preference, may dominate ranking</span>
+<span class="sd">    </span>
+<span class="sd">    Optimal Settings:</span>
+<span class="sd">    - General use: 0.15-0.25</span>
+<span class="sd">    - Technical content: 0.20-0.30</span>
+<span class="sd">    - Factual queries: 0.10-0.20</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># =========================</span>
+    <span class="c1"># MMR (Maximal Marginal Relevance) Configuration</span>
+    <span class="c1"># =========================</span>
+    <span class="n">use_mmr</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Whether to use MMR for result diversification and redundancy reduction.</span>
+<span class="sd">    </span>
+<span class="sd">    MMR Benefits:</span>
+<span class="sd">    - Reduces redundant results with similar content</span>
+<span class="sd">    - Improves coverage of different aspects of the query</span>
+<span class="sd">    - Better user experience with diverse information</span>
+<span class="sd">    </span>
+<span class="sd">    MMR Trade-offs:</span>
+<span class="sd">    - Slightly slower than simple top-K selection</span>
+<span class="sd">    - May reduce absolute relevance scores</span>
+<span class="sd">    - Better for exploratory queries, worse for specific fact retrieval</span>
+<span class="sd">    </span>
+<span class="sd">    Alternatives:</span>
+<span class="sd">    - False: Simple top-K selection (faster, may have redundancy)</span>
+<span class="sd">    - True: MMR diversification (slower, better diversity)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">mmr_lambda</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.6</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    MMR diversification parameter balancing relevance vs. diversity (0.0 to 1.0).</span>
+<span class="sd">    </span>
+<span class="sd">    Lambda Parameter Behavior:</span>
+<span class="sd">    - lambda = 0.0: Pure diversity (ignore relevance, maximize difference)</span>
+<span class="sd">    - lambda = 0.5: Balanced relevance and diversity</span>
+<span class="sd">    - lambda = 0.6: Slight preference for relevance (current setting)</span>
+<span class="sd">    - lambda = 1.0: Pure relevance (ignore diversity, top-K selection)</span>
+<span class="sd">    </span>
+<span class="sd">    Use Case Recommendations:</span>
+<span class="sd">    - Research queries: 0.4-0.6 (diverse perspectives important)</span>
+<span class="sd">    - Factual queries: 0.7-0.9 (relevance more important)</span>
+<span class="sd">    - Exploratory queries: 0.3-0.5 (diversity valuable)</span>
+<span class="sd">    - Specific searches: 0.8-1.0 (precision over diversity)</span>
+<span class="sd">    </span>
+<span class="sd">    Tuning Guidelines:</span>
+<span class="sd">    - Start with 0.6 for general use</span>
+<span class="sd">    - Decrease if results seem too similar</span>
+<span class="sd">    - Increase if results seem too diverse</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">api_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;AZURE_API_VERSION&quot;</span>
+    
+    <span class="c1"># =========================</span>
+    <span class="c1"># LLM Configuration (Optional)</span>
+    <span class="c1"># =========================</span>
+    <span class="n">lm_base_env</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;AZURE_API_BASE&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Environment variable name for LLM service base URL.</span>
+<span class="sd">    </span>
+<span class="sd">    Supported Services:</span>
+<span class="sd">    - OpenAI: https://api.openai.com/v1</span>
+<span class="sd">    - LM Studio: http://localhost:1234/v1</span>
+<span class="sd">    - Ollama: http://localhost:11434/v1</span>
+<span class="sd">    - Custom API: Your endpoint URL</span>
+<span class="sd">    </span>
+<span class="sd">    Configuration Examples:</span>
+<span class="sd">    - OpenAI: OPENAI_BASE_URL=https://api.openai.com/v1</span>
+<span class="sd">    - LM Studio: OPENAI_BASE_URL=http://localhost:1234/v1</span>
+<span class="sd">    - Azure OpenAI: OPENAI_BASE_URL=https://your-resource.openai.azure.com</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">lm_key_env</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;AZURE_API_KEY&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Environment variable name for LLM service API key.</span>
+<span class="sd">    </span>
+<span class="sd">    Security Notes:</span>
+<span class="sd">    - Never hardcode API keys in source code</span>
+<span class="sd">    - Use environment variables or secure secret management</span>
+<span class="sd">    - Rotate keys regularly for production systems</span>
+<span class="sd">    </span>
+<span class="sd">    Configuration Examples:</span>
+<span class="sd">    - OpenAI: OPENAI_API_KEY=sk-...</span>
+<span class="sd">    - LM Studio: OPENAI_API_KEY=lm-studio (can be any value)</span>
+<span class="sd">    - Azure: OPENAI_API_KEY=your-azure-key</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lm_model_env</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;MODEL&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Environment variable name for the specific LLM model to use.</span>
+<span class="sd">    </span>
+<span class="sd">    Model Selection:</span>
+<span class="sd">    - OpenAI: gpt-3.5-turbo, gpt-4, gpt-4-turbo</span>
+<span class="sd">    - LM Studio: Any model name you&#39;ve loaded</span>
+<span class="sd">    - Ollama: llama2, codellama, mistral, etc.</span>
+<span class="sd">    - Custom: Your model identifier</span>
+<span class="sd">    </span>
+<span class="sd">    Configuration Examples:</span>
+<span class="sd">    - OpenAI: LMSTUDIO_MODEL=gpt-3.5-turbo</span>
+<span class="sd">    - LM Studio: LMSTUDIO_MODEL=llama-2-7b-chat</span>
+<span class="sd">    - Ollama: LMSTUDIO_MODEL=llama2:7b</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lm_model_name</span> <span class="o">=</span> <span class="s2">&quot;gpt-4o&quot;</span></div>
+
+
+<span class="n">SETTINGS</span> <span class="o">=</span> <span class="n">Settings</span><span class="p">()</span>
+
+<span class="c1"># =========================</span>
+<span class="c1"># Componenti di base</span>
+<span class="c1"># =========================</span>
+
+<div class="viewcode-block" id="get_embeddings">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.get_embeddings">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_embeddings</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AzureOpenAIEmbeddings</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Restituisce un client di Azure. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">AzureOpenAIEmbeddings</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">SETTINGS</span><span class="o">.</span><span class="n">embedding_model_name</span><span class="p">,</span>
+        <span class="n">api_version</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;AZURE_API_VERSION&quot;</span><span class="p">),</span>
+        <span class="n">azure_endpoint</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;AZURE_API_BASE&quot;</span><span class="p">),</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;AZURE_API_KEY&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">client</span></div>
+
+
+<div class="viewcode-block" id="get_llm">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.get_llm">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_llm</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Initialize and test an LLM instance for text generation if properly configured.</span>
+<span class="sd">    </span>
+<span class="sd">    This function attempts to create an LLM connection using environment variables</span>
+<span class="sd">    and performs a connectivity test to ensure the service is working before</span>
+<span class="sd">    returning the instance. If any step fails, it gracefully falls back to None.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        settings: Configuration object containing LLM environment variable names</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        ChatModel or None: Configured LLM instance if successful, None otherwise</span>
+<span class="sd">        </span>
+<span class="sd">    Configuration Requirements:</span>
+<span class="sd">    - OPENAI_BASE_URL: Base URL for the LLM service</span>
+<span class="sd">    - OPENAI_API_KEY: Authentication key for the service</span>
+<span class="sd">    - LMSTUDIO_MODEL: Specific model identifier to use</span>
+<span class="sd">        </span>
+<span class="sd">    Supported LLM Services:</span>
+<span class="sd">    - OpenAI API: Production-grade, reliable, paid service</span>
+<span class="sd">    - LM Studio: Local inference, free, requires model download</span>
+<span class="sd">    - Ollama: Local inference, free, easy setup</span>
+<span class="sd">    - Azure OpenAI: Enterprise-grade, reliable, paid service</span>
+<span class="sd">    - Custom APIs: Any OpenAI-compatible endpoint</span>
+<span class="sd">        </span>
+<span class="sd">    Connection Testing:</span>
+<span class="sd">    - Performs a simple &quot;test&quot; query to verify connectivity</span>
+<span class="sd">    - Tests both network connectivity and model availability</span>
+<span class="sd">    - Helps identify configuration issues early</span>
+<span class="sd">        </span>
+<span class="sd">    Error Handling Strategy:</span>
+<span class="sd">    - Missing env vars: Graceful fallback with informative message</span>
+<span class="sd">    - Network issues: Catches connection errors and continues</span>
+<span class="sd">    - Authentication errors: Handles invalid API keys gracefully</span>
+<span class="sd">    - Model errors: Catches model-specific issues</span>
+<span class="sd">        </span>
+<span class="sd">    Fallback Behavior:</span>
+<span class="sd">    - Returns None if any step fails</span>
+<span class="sd">    - Script continues without LLM generation</span>
+<span class="sd">    - Retrieved content is displayed instead of generated answers</span>
+<span class="sd">        </span>
+<span class="sd">    Security Considerations:</span>
+<span class="sd">    - API keys are read from environment variables only</span>
+<span class="sd">    - No hardcoded credentials in source code</span>
+<span class="sd">    - Test query is minimal and doesn&#39;t expose sensitive data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">lm_base_env</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">lm_key_env</span><span class="p">)</span>
+        <span class="n">model_name</span> <span class="o">=</span> <span class="n">SETTINGS</span><span class="o">.</span><span class="n">lm_model_name</span>
+        <span class="n">api_version</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">api_version</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">base</span> <span class="ow">and</span> <span class="n">key</span> <span class="ow">and</span> <span class="n">model_name</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LLM not configured because base or key not set correctly- skipping generation step&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+        <span class="c1"># Test the LLM connection before returning</span>
+        <span class="n">llm</span> <span class="o">=</span> <span class="n">init_chat_model</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">model_provider</span><span class="o">=</span><span class="s2">&quot;azure_openai&quot;</span><span class="p">,</span> <span class="n">api_version</span><span class="o">=</span><span class="n">api_version</span><span class="p">,</span> <span class="n">api_key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">azure_endpoint</span><span class="o">=</span><span class="n">base</span><span class="p">)</span>
+        <span class="c1"># Simple test to verify the LLM works</span>
+        <span class="n">test_response</span> <span class="o">=</span> <span class="n">llm</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">test_response</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LLM configured successfully&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">llm</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LLM test failed - skipping generation step&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+            
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LLM configuration error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Continuing without LLM - will show retrieved content only&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="simulate_corpus">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.simulate_corpus">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">simulate_corpus</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">Document</span><span class="p">(</span>
+            <span class="n">page_content</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;LangChain is a framework for building applications with Large Language Models. &quot;</span>
+                <span class="s2">&quot;It provides chains, agents, prompt templates, memory, and many integrations.&quot;</span>
+            <span class="p">),</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;doc1&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;intro-langchain.md&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Intro LangChain&quot;</span><span class="p">,</span> <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="s2">&quot;en&quot;</span><span class="p">}</span>
+        <span class="p">),</span>
+        <span class="n">Document</span><span class="p">(</span>
+            <span class="n">page_content</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;FAISS is a library for efficient similarity search of dense vectors. &quot;</span>
+                <span class="s2">&quot;It supports both exact and approximate nearest neighbor search at scale.&quot;</span>
+            <span class="p">),</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;doc2&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;faiss-overview.md&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;FAISS Overview&quot;</span><span class="p">,</span> <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="s2">&quot;en&quot;</span><span class="p">}</span>
+        <span class="p">),</span>
+        <span class="n">Document</span><span class="p">(</span>
+            <span class="n">page_content</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;Sentence-transformers like all-MiniLM-L6-v2 produce 384-dimensional sentence embeddings &quot;</span>
+                <span class="s2">&quot;for semantic search, clustering, and retrieval-augmented generation.&quot;</span>
+            <span class="p">),</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;doc3&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;embeddings-minilm.md&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;MiniLM Embeddings&quot;</span><span class="p">,</span> <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="s2">&quot;en&quot;</span><span class="p">}</span>
+        <span class="p">),</span>
+        <span class="n">Document</span><span class="p">(</span>
+            <span class="n">page_content</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;A typical RAG pipeline includes indexing (load, split, embed, store), retrieval, and generation. &quot;</span>
+                <span class="s2">&quot;Retrieval selects the most relevant chunks, then the LLM answers grounded in those chunks.&quot;</span>
+            <span class="p">),</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;doc4&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;rag-pipeline.md&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;RAG Pipeline&quot;</span><span class="p">,</span> <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="s2">&quot;en&quot;</span><span class="p">}</span>
+        <span class="p">),</span>
+        <span class="n">Document</span><span class="p">(</span>
+            <span class="n">page_content</span><span class="o">=</span><span class="p">(</span>
+                <span class="s2">&quot;Maximal Marginal Relevance (MMR) trades off relevance and diversity to reduce redundancy &quot;</span>
+                <span class="s2">&quot;and improve coverage of distinct aspects in retrieved chunks.&quot;</span>
+            <span class="p">),</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;doc5&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;retrieval-mmr.md&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;MMR Retrieval&quot;</span><span class="p">,</span> <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="s2">&quot;en&quot;</span><span class="p">}</span>
+        <span class="p">),</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">docs</span></div>
+
+
+<div class="viewcode-block" id="pdf_to_markdown_with_tables">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.pdf_to_markdown_with_tables">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">pdf_to_markdown_with_tables</span><span class="p">(</span><span class="n">pdf_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract text and tables from a PDF file, return a combined markdown string.</span>
+<span class="sd">    Tables are converted to markdown tables.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">combined_md</span> <span class="o">=</span> <span class="p">[]</span>
+ 
+    <span class="k">with</span> <span class="n">pdfplumber</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">pdf_path</span><span class="p">))</span> <span class="k">as</span> <span class="n">pdf</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">page</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pdf</span><span class="o">.</span><span class="n">pages</span><span class="p">):</span>
+            <span class="n">combined_md</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;## Page </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Extract page text</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">extract_text</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">combined_md</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="n">combined_md</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+ 
+            <span class="c1"># Extract tables on page</span>
+            <span class="n">tables</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">extract_tables</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="n">tables</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">table</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="c1"># Convert table (list of lists) to markdown table</span>
+                <span class="c1"># First row is header</span>
+                <span class="n">header</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">rows</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                <span class="c1"># Build markdown table string</span>
+                <span class="n">md_table</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">md_table</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;| &quot;</span> <span class="o">+</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span> <span class="k">if</span> <span class="n">cell</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">header</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; |&quot;</span><span class="p">)</span>
+                <span class="n">md_table</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;|&quot;</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;---&quot;</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">header</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;|&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+                    <span class="n">md_table</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;| &quot;</span> <span class="o">+</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span> <span class="k">if</span> <span class="n">cell</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span> <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">row</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; |&quot;</span><span class="p">)</span>
+                <span class="n">combined_md</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">md_table</span><span class="p">))</span>
+                <span class="n">combined_md</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">combined_md</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;---</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+ 
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">combined_md</span><span class="p">)</span></div>
+
+ 
+<div class="viewcode-block" id="load_real_documents_from_folder">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.load_real_documents_from_folder">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_real_documents_from_folder</span><span class="p">(</span><span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load `.txt`, `.md`, and `.pdf` files recursively into `Document` objects.</span>
+<span class="sd">    For PDFs, extract text and tables using pdfplumber and convert to markdown text.</span>
+<span class="sd"> </span>
+<span class="sd">    Args:</span>
+<span class="sd">        folder_path (str): Directory containing text files.</span>
+<span class="sd"> </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        List[Document]: Loaded documents with metadata[&#39;source&#39;] set to original filename.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">folder</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder_path</span><span class="p">)</span>
+    <span class="n">documents</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+ 
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">folder</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">folder</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;La cartella &#39;</span><span class="si">{</span><span class="n">folder_path</span><span class="si">}</span><span class="s2">&#39; non esiste o non è una directory.&quot;</span><span class="p">)</span>
+ 
+    <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">folder</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;**/*&quot;</span><span class="p">):</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">file_path</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+ 
+        <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;.md&quot;</span><span class="p">]:</span>
+            <span class="n">loader</span> <span class="o">=</span> <span class="n">TextLoader</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">file_path</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">docs</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ Errore caricando &#39;</span><span class="si">{</span><span class="n">file_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+ 
+        <span class="k">elif</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;.pdf&quot;</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span> 
+                <span class="n">markdown_content</span> <span class="o">=</span> <span class="n">pdf_to_markdown_with_tables</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+                <span class="c1"># Create a single Document from this markdown content</span>
+                <span class="n">docs</span> <span class="o">=</span> <span class="p">[</span><span class="n">Document</span><span class="p">(</span><span class="n">page_content</span><span class="o">=</span><span class="n">markdown_content</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">file_path</span><span class="o">.</span><span class="n">name</span><span class="p">})]</span>
+                <span class="c1"># Salva il documento in markdown</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;outputs/</span><span class="si">{</span><span class="n">file_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.md&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">markdown_content</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;⚠️ Errore processando PDF &#39;</span><span class="si">{</span><span class="n">file_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">continue</span>  <span class="c1"># skip unsupported file types</span>
+ 
+        <span class="c1"># If docs from text or md file, set metadata</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;.md&quot;</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">:</span>
+                <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">file_path</span><span class="o">.</span><span class="n">name</span>
+ 
+        <span class="n">documents</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>
+ 
+    <span class="k">return</span> <span class="n">documents</span></div>
+
+
+<span class="c1"># def load_real_documents_from_folder(folder_path: str) -&gt; List[Document]:</span>
+<span class="c1">#     &quot;&quot;&quot;</span>
+<span class="c1">#     Load `.txt`, `.md`, and `.pdf` files recursively into `Document` objects.</span>
+<span class="c1">#     Uses PyPDFLoader for PDFs and TextLoader for text files.</span>
+ 
+<span class="c1">#     Args:</span>
+<span class="c1">#         folder_path (str): Directory containing text files.</span>
+ 
+<span class="c1">#     Returns:</span>
+<span class="c1">#         List[Document]: Loaded documents with metadata[&#39;source&#39;] set to original filename.</span>
+<span class="c1">#     &quot;&quot;&quot;</span>
+<span class="c1">#     folder = Path(folder_path)</span>
+<span class="c1">#     documents: List[Document] = []</span>
+ 
+<span class="c1">#     if not folder.exists() or not folder.is_dir():</span>
+<span class="c1">#         raise ValueError(f&quot;La cartella &#39;{folder_path}&#39; non esiste o non è una directory.&quot;)</span>
+ 
+<span class="c1">#     for file_path in folder.glob(&quot;**/*&quot;):</span>
+<span class="c1">#         ext = file_path.suffix.lower()</span>
+ 
+<span class="c1">#         if ext in [&quot;.txt&quot;, &quot;.md&quot;]:</span>
+<span class="c1">#             loader = TextLoader(str(file_path), encoding=&quot;utf-8&quot;)</span>
+<span class="c1">#         elif ext == &quot;.pdf&quot;:</span>
+<span class="c1">#             loader = PyPDFLoader(str(file_path))</span>
+<span class="c1">#         else:</span>
+<span class="c1">#             continue  # skip unsupported file types</span>
+ 
+<span class="c1">#         try:</span>
+<span class="c1">#             docs = loader.load()</span>
+<span class="c1">#         except Exception as e:</span>
+<span class="c1">#             print(f&quot;⚠️ Errore caricando &#39;{file_path.name}&#39;: {e}&quot;)</span>
+<span class="c1">#             continue</span>
+ 
+<span class="c1">#         for doc in docs:</span>
+<span class="c1">#             doc.metadata[&quot;source&quot;] = file_path.name</span>
+ 
+<span class="c1">#         documents.extend(docs)</span>
+ 
+<span class="c1">#     return documents</span>
+
+
+<div class="viewcode-block" id="split_documents">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.split_documents">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_documents</span><span class="p">(</span><span class="n">docs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">],</span> <span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+    <span class="n">splitter</span> <span class="o">=</span> <span class="n">RecursiveCharacterTextSplitter</span><span class="p">(</span>
+        <span class="n">chunk_size</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">,</span>
+        <span class="n">chunk_overlap</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">chunk_overlap</span><span class="p">,</span>
+        <span class="n">separators</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;. &quot;</span><span class="p">,</span> <span class="s2">&quot;? &quot;</span><span class="p">,</span> <span class="s2">&quot;! &quot;</span><span class="p">,</span> <span class="s2">&quot;; &quot;</span><span class="p">,</span> <span class="s2">&quot;: &quot;</span><span class="p">,</span> <span class="s2">&quot;, &quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">splitter</span><span class="o">.</span><span class="n">split_documents</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span></div>
+
+
+<span class="c1"># =========================</span>
+<span class="c1"># Qdrant: creazione collection + indici</span>
+<span class="c1"># =========================</span>
+
+<div class="viewcode-block" id="get_qdrant_client">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.get_qdrant_client">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_qdrant_client</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">QdrantClient</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">QdrantClient</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">qdrant_url</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="recreate_collection_for_rag">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.recreate_collection_for_rag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recreate_collection_for_rag</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">QdrantClient</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">,</span> <span class="n">vector_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create or recreate a Qdrant collection optimized for RAG (Retrieval-Augmented Generation).</span>
+<span class="sd">    </span>
+<span class="sd">    This function sets up a vector database collection with optimal configuration for</span>
+<span class="sd">    semantic search, including HNSW indexing, payload indexing, and quantization.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        client: Qdrant client instance for database operations</span>
+<span class="sd">        settings: Configuration object containing collection parameters</span>
+<span class="sd">        vector_size: Dimension of the embedding vectors (e.g., 384 for MiniLM-L6)</span>
+<span class="sd">        </span>
+<span class="sd">    Collection Architecture:</span>
+<span class="sd">    - Vector storage: Dense vectors for semantic similarity search</span>
+<span class="sd">    - Payload storage: Metadata and text content for retrieval</span>
+<span class="sd">    - Indexing: HNSW for approximate nearest neighbor search</span>
+<span class="sd">    - Quantization: Scalar quantization for memory optimization</span>
+<span class="sd">        </span>
+<span class="sd">    Distance Metric Selection:</span>
+<span class="sd">    - Cosine distance: Normalized similarity, good for semantic embeddings</span>
+<span class="sd">    - Alternatives: Euclidean (L2), Manhattan (L1), Dot product</span>
+<span class="sd">    - Cosine preferred for normalized embeddings (sentence-transformers)</span>
+<span class="sd">        </span>
+<span class="sd">    HNSW Index Configuration:</span>
+<span class="sd">    - m=32: Average connections per node (higher = better quality, more memory)</span>
+<span class="sd">    - ef_construct=256: Search depth during construction (higher = better quality, slower build)</span>
+<span class="sd">    - Trade-offs: Higher values improve recall but increase memory and build time</span>
+<span class="sd">        </span>
+<span class="sd">    Optimizer Configuration:</span>
+<span class="sd">    - default_segment_number=2: Parallel processing segments</span>
+<span class="sd">    - Benefits: Faster indexing, better resource utilization</span>
+<span class="sd">    - Considerations: More segments = more memory overhead</span>
+<span class="sd">        </span>
+<span class="sd">    Quantization Strategy:</span>
+<span class="sd">    - Scalar quantization: Reduces vector precision from float32 to int8</span>
+<span class="sd">    - Memory savings: ~4x reduction in vector storage</span>
+<span class="sd">    - Quality impact: Minimal impact on search accuracy</span>
+<span class="sd">    - always_ram=False: Vectors stored on disk, loaded to RAM as needed</span>
+<span class="sd">        </span>
+<span class="sd">    Payload Indexing Strategy:</span>
+<span class="sd">    - Text index: Full-text search capabilities (BM25 scoring)</span>
+<span class="sd">    - Keyword indices: Fast exact matching and filtering</span>
+<span class="sd">    - Performance: Significantly faster than unindexed field searches</span>
+<span class="sd">        </span>
+<span class="sd">    Collection Lifecycle:</span>
+<span class="sd">    - recreate_collection: Drops existing collection and creates new one</span>
+<span class="sd">    - Use case: Development/testing, major schema changes</span>
+<span class="sd">    - Production: Consider using create_collection + update_collection_info</span>
+<span class="sd">        </span>
+<span class="sd">    Performance Considerations:</span>
+<span class="sd">    - Build time: HNSW construction scales with collection size</span>
+<span class="sd">    - Memory usage: Vectors loaded to RAM during search</span>
+<span class="sd">    - Storage: Quantized vectors + payload data</span>
+<span class="sd">    - Query latency: HNSW provides sub-millisecond search times</span>
+<span class="sd">        </span>
+<span class="sd">    Scaling Guidelines:</span>
+<span class="sd">    - Small collections (&lt;100K vectors): Current settings optimal</span>
+<span class="sd">    - Medium collections (100K-1M vectors): Increase m to 48-64</span>
+<span class="sd">    - Large collections (1M+ vectors): Consider multiple collections or sharding</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">recreate_collection</span><span class="p">(</span>
+        <span class="n">collection_name</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+        <span class="n">vectors_config</span><span class="o">=</span><span class="n">VectorParams</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">vector_size</span><span class="p">,</span> <span class="n">distance</span><span class="o">=</span><span class="n">Distance</span><span class="o">.</span><span class="n">COSINE</span><span class="p">),</span>
+        <span class="n">hnsw_config</span><span class="o">=</span><span class="n">HnswConfigDiff</span><span class="p">(</span>
+            <span class="n">m</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>             <span class="c1"># grado medio del grafo HNSW (maggiore = più memoria/qualità)</span>
+            <span class="n">ef_construct</span><span class="o">=</span><span class="mi">256</span>  <span class="c1"># ampiezza lista candidati in fase costruzione (qualità/tempo build)</span>
+        <span class="p">),</span>
+        <span class="n">optimizers_config</span><span class="o">=</span><span class="n">OptimizersConfigDiff</span><span class="p">(</span>
+            <span class="n">default_segment_number</span><span class="o">=</span><span class="mi">2</span>  <span class="c1"># parallelismo/segmentazione iniziale</span>
+        <span class="p">),</span>
+        <span class="n">quantization_config</span><span class="o">=</span><span class="n">ScalarQuantization</span><span class="p">(</span>
+            <span class="n">scalar</span><span class="o">=</span><span class="n">ScalarQuantizationConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="n">always_ram</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># on-disk quantization dei vettori</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Indice full-text sul campo &#39;text&#39; per filtri MatchText</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">create_payload_index</span><span class="p">(</span>
+        <span class="n">collection_name</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+        <span class="n">field_name</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+        <span class="n">field_schema</span><span class="o">=</span><span class="n">PayloadSchemaType</span><span class="o">.</span><span class="n">TEXT</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Indici keyword per filtri esatti / velocità nei filtri</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;doc_id&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;lang&quot;</span><span class="p">,</span> <span class="s2">&quot;trusted&quot;</span><span class="p">]:</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">create_payload_index</span><span class="p">(</span>
+            <span class="n">collection_name</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">field_name</span><span class="o">=</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">field_schema</span><span class="o">=</span><span class="n">PayloadSchemaType</span><span class="o">.</span><span class="n">KEYWORD</span>
+        <span class="p">)</span></div>
+
+
+<span class="c1"># =========================</span>
+<span class="c1"># Ingest: chunk -&gt; embed -&gt; upsert</span>
+<span class="c1"># =========================</span>
+
+<div class="viewcode-block" id="build_points">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.build_points">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_points</span><span class="p">(</span><span class="n">chunks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">],</span> <span class="n">embeds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">PointStruct</span><span class="p">]:</span>
+    <span class="n">pts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">PointStruct</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">vec</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">embeds</span><span class="p">),</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;doc_id&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;title&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;lang&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;lang&quot;</span><span class="p">,</span> <span class="s2">&quot;it&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">page_content</span><span class="p">,</span>
+            <span class="s2">&quot;chunk_id&quot;</span><span class="p">:</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="p">}</span>
+        <span class="n">pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PointStruct</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">vector</span><span class="o">=</span><span class="n">vec</span><span class="p">,</span> <span class="n">payload</span><span class="o">=</span><span class="n">payload</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pts</span></div>
+
+
+<div class="viewcode-block" id="upsert_chunks">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.upsert_chunks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">upsert_chunks</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">QdrantClient</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">,</span> <span class="n">chunks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Document</span><span class="p">],</span> <span class="n">embeddings</span><span class="p">:</span> <span class="n">AzureOpenAIEmbeddings</span><span class="p">):</span>
+    <span class="n">vecs</span> <span class="o">=</span> <span class="n">embeddings</span><span class="o">.</span><span class="n">embed_documents</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">page_content</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">])</span>
+    <span class="n">points</span> <span class="o">=</span> <span class="n">build_points</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">vecs</span><span class="p">)</span>
+    <span class="n">client</span><span class="o">.</span><span class="n">upsert</span><span class="p">(</span><span class="n">collection_name</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="n">points</span><span class="p">,</span> <span class="n">wait</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<span class="c1"># =========================</span>
+<span class="c1"># Ricerca: semantica / testuale / ibrida</span>
+<span class="c1"># =========================</span>
+
+<div class="viewcode-block" id="qdrant_semantic_search">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.qdrant_semantic_search">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">qdrant_semantic_search</span><span class="p">(</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">QdrantClient</span><span class="p">,</span>
+    <span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">,</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">embeddings</span><span class="p">:</span> <span class="n">AzureOpenAIEmbeddings</span><span class="p">,</span>
+    <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">with_vectors</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">):</span>
+    <span class="n">qv</span> <span class="o">=</span> <span class="n">embeddings</span><span class="o">.</span><span class="n">embed_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_points</span><span class="p">(</span>
+        <span class="n">collection_name</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+        <span class="n">query</span><span class="o">=</span><span class="n">qv</span><span class="p">,</span>
+        <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">,</span>
+        <span class="n">with_payload</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">with_vectors</span><span class="o">=</span><span class="n">with_vectors</span><span class="p">,</span>
+        <span class="n">search_params</span><span class="o">=</span><span class="n">SearchParams</span><span class="p">(</span>
+            <span class="n">hnsw_ef</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span>  <span class="c1"># ampiezza lista in fase di ricerca (recall/latency)</span>
+            <span class="n">exact</span><span class="o">=</span><span class="kc">False</span>   <span class="c1"># True = ricerca esatta (lenta); False = ANN HNSW</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">points</span></div>
+
+
+<div class="viewcode-block" id="qdrant_text_prefilter_ids">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.qdrant_text_prefilter_ids">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">qdrant_text_prefilter_ids</span><span class="p">(</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">QdrantClient</span><span class="p">,</span>
+    <span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">,</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">max_hits</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Usa l&#39;indice full-text su &#39;text&#39; per prefiltrare i punti che contengono parole chiave.</span>
+<span class="sd">    Non restituisce uno score BM25: otteniamo un sottoinsieme di id da usare come boost.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Scroll con filtro MatchText per ottenere id dei match testuali</span>
+    <span class="c1"># (nota: scroll è paginato; qui prendiamo solo i primi max_hits per semplicità)</span>
+    <span class="n">matched_ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">next_page</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">points</span><span class="p">,</span> <span class="n">next_page</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">scroll</span><span class="p">(</span>
+            <span class="n">collection_name</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">collection</span><span class="p">,</span>
+            <span class="n">scroll_filter</span><span class="o">=</span><span class="n">Filter</span><span class="p">(</span>
+                <span class="n">must</span><span class="o">=</span><span class="p">[</span><span class="n">FieldCondition</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="n">MatchText</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="n">query</span><span class="p">))]</span>
+            <span class="p">),</span>
+            <span class="n">limit</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="n">max_hits</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">matched_ids</span><span class="p">)),</span>
+            <span class="n">offset</span><span class="o">=</span><span class="n">next_page</span><span class="p">,</span>
+            <span class="n">with_payload</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">with_vectors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">matched_ids</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">next_page</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">matched_ids</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">max_hits</span><span class="p">:</span>
+            <span class="k">break</span>
+    <span class="k">return</span> <span class="n">matched_ids</span></div>
+
+
+<div class="viewcode-block" id="mmr_select">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.mmr_select">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mmr_select</span><span class="p">(</span>
+    <span class="n">query_vec</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">candidates_vecs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">lambda_mult</span><span class="p">:</span> <span class="nb">float</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Select diverse results using Maximal Marginal Relevance (MMR) algorithm.</span>
+<span class="sd">    </span>
+<span class="sd">    MMR balances relevance to the query with diversity among selected results,</span>
+<span class="sd">    reducing redundancy and improving information coverage. This is particularly</span>
+<span class="sd">    useful for RAG systems where diverse context provides better generation.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        query_vec: Query embedding vector for relevance calculation</span>
+<span class="sd">        candidates_vecs: List of candidate document embedding vectors</span>
+<span class="sd">        k: Number of results to select</span>
+<span class="sd">        lambda_mult: MMR parameter balancing relevance vs. diversity (0.0 to 1.0)</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        List[int]: Indices of selected candidates in order of selection</span>
+<span class="sd">        </span>
+<span class="sd">    MMR Algorithm Overview:</span>
+<span class="sd">    </span>
+<span class="sd">    The algorithm iteratively selects candidates that maximize the MMR score:</span>
+<span class="sd">    </span>
+<span class="sd">    MMR_score(i) = λ × Relevance(i, query) - (1-λ) × max_similarity(i, selected)</span>
+<span class="sd">    </span>
+<span class="sd">    Where:</span>
+<span class="sd">    - λ (lambda_mult): Weight for relevance vs. diversity</span>
+<span class="sd">    - Relevance(i, query): Cosine similarity between candidate i and query</span>
+<span class="sd">    - max_similarity(i, selected): Maximum similarity between candidate i and already selected items</span>
+<span class="sd">        </span>
+<span class="sd">    Algorithm Steps:</span>
+<span class="sd">    </span>
+<span class="sd">    1. INITIALIZATION:</span>
+<span class="sd">       - Calculate relevance scores for all candidates vs. query</span>
+<span class="sd">       - Select the highest-scoring candidate as the first result</span>
+<span class="sd">       - Initialize selected and remaining candidate sets</span>
+<span class="sd">        </span>
+<span class="sd">    2. ITERATIVE SELECTION:</span>
+<span class="sd">       - For each remaining position, calculate MMR score for all candidates</span>
+<span class="sd">       - MMR score balances query relevance with diversity from selected items</span>
+<span class="sd">       - Select candidate with highest MMR score</span>
+<span class="sd">       - Update selected and remaining sets</span>
+<span class="sd">        </span>
+<span class="sd">    3. TERMINATION:</span>
+<span class="sd">       - Continue until k candidates selected or no more candidates available</span>
+<span class="sd">       - Return indices in selection order</span>
+<span class="sd">        </span>
+<span class="sd">    Mathematical Foundation:</span>
+<span class="sd">    </span>
+<span class="sd">    Cosine Similarity:</span>
+<span class="sd">    - cos(a,b) = (a·b) / (||a|| × ||b||)</span>
+<span class="sd">    - Range: [-1, 1] where 1 = identical, 0 = orthogonal, -1 = opposite</span>
+<span class="sd">    - Normalized vectors typically have values in [0, 1] range</span>
+<span class="sd">        </span>
+<span class="sd">    MMR Score Calculation:</span>
+<span class="sd">    - Relevance term: λ × cos(query, candidate)</span>
+<span class="sd">    - Diversity term: (1-λ) × max(cos(candidate, selected_i))</span>
+<span class="sd">    - Higher relevance increases score, higher similarity to selected decreases score</span>
+<span class="sd">        </span>
+<span class="sd">    Lambda Parameter Behavior:</span>
+<span class="sd">    </span>
+<span class="sd">    λ = 0.0 (Pure Diversity):</span>
+<span class="sd">    - Only diversity matters, relevance ignored</span>
+<span class="sd">    - Results may be irrelevant to query</span>
+<span class="sd">    - Useful for exploratory search</span>
+<span class="sd">        </span>
+<span class="sd">    λ = 0.5 (Balanced):</span>
+<span class="sd">    - Equal weight for relevance and diversity</span>
+<span class="sd">    - Good compromise for general use</span>
+<span class="sd">    - Moderate redundancy reduction</span>
+<span class="sd">        </span>
+<span class="sd">    λ = 0.6 (Current Setting):</span>
+<span class="sd">    - Slight preference for relevance</span>
+<span class="sd">    - Good diversity while maintaining relevance</span>
+<span class="sd">    - Recommended for most RAG applications</span>
+<span class="sd">        </span>
+<span class="sd">    λ = 1.0 (Pure Relevance):</span>
+<span class="sd">    - Only relevance matters, diversity ignored</span>
+<span class="sd">    - Equivalent to simple top-K selection</span>
+<span class="sd">    - May have redundant results</span>
+<span class="sd">        </span>
+<span class="sd">    Performance Characteristics:</span>
+<span class="sd">    </span>
+<span class="sd">    Time Complexity:</span>
+<span class="sd">    - O(k × n) where k = results to select, n = total candidates</span>
+<span class="sd">    - Each iteration processes all remaining candidates</span>
+<span class="sd">    - Quadratic complexity in worst case (k ≈ n)</span>
+<span class="sd">        </span>
+<span class="sd">    Space Complexity:</span>
+<span class="sd">    - O(n) for storing vectors and similarity scores</span>
+<span class="sd">    - O(k) for selected indices</span>
+<span class="sd">    - O(n) for remaining candidate set</span>
+<span class="sd">        </span>
+<span class="sd">    Memory Usage:</span>
+<span class="sd">    - Vector storage: All candidate vectors loaded in memory</span>
+<span class="sd">    - Similarity cache: Relevance scores computed once</span>
+<span class="sd">    - Selection state: Small overhead for tracking</span>
+<span class="sd">        </span>
+<span class="sd">    Quality Metrics:</span>
+<span class="sd">    </span>
+<span class="sd">    Relevance Preservation:</span>
+<span class="sd">    - Higher lambda values preserve more relevance</span>
+<span class="sd">    - Lower lambda values may sacrifice relevance for diversity</span>
+<span class="sd">    - Optimal balance depends on use case</span>
+<span class="sd">        </span>
+<span class="sd">    Diversity Improvement:</span>
+<span class="sd">    - MMR significantly reduces redundancy compared to top-K</span>
+<span class="sd">    - Diversity increases as lambda decreases</span>
+<span class="sd">    - Measurable improvement in information coverage</span>
+<span class="sd">        </span>
+<span class="sd">    User Experience:</span>
+<span class="sd">    - Less repetitive results</span>
+<span class="sd">    - Better coverage of different aspects</span>
+<span class="sd">    - More informative context for LLM generation</span>
+<span class="sd">        </span>
+<span class="sd">    Use Case Recommendations:</span>
+<span class="sd">    </span>
+<span class="sd">    Research &amp; Exploration:</span>
+<span class="sd">    - λ = 0.3-0.5: Maximize diversity for comprehensive understanding</span>
+<span class="sd">    - Higher k values: More diverse perspectives</span>
+<span class="sd">        </span>
+<span class="sd">    Factual Queries:</span>
+<span class="sd">    - λ = 0.7-0.9: Prioritize relevance for accurate information</span>
+<span class="sd">    - Lower k values: Focus on most relevant results</span>
+<span class="sd">        </span>
+<span class="sd">    Technical Documentation:</span>
+<span class="sd">    - λ = 0.5-0.7: Balance relevance with diverse technical perspectives</span>
+<span class="sd">    - Moderate k values: Comprehensive technical coverage</span>
+<span class="sd">        </span>
+<span class="sd">    Conversational AI:</span>
+<span class="sd">    - λ = 0.6-0.8: Good relevance with some diversity</span>
+<span class="sd">    - Higher k values: Rich context for generation</span>
+<span class="sd">        </span>
+<span class="sd">    Tuning Guidelines:</span>
+<span class="sd">    </span>
+<span class="sd">    For Maximum Diversity:</span>
+<span class="sd">    - Decrease lambda to 0.3-0.5</span>
+<span class="sd">    - Increase k to 8-12 results</span>
+<span class="sd">    - Monitor relevance quality</span>
+<span class="sd">        </span>
+<span class="sd">    For Maximum Relevance:</span>
+<span class="sd">    - Increase lambda to 0.8-1.0</span>
+<span class="sd">    - Decrease k to 3-6 results</span>
+<span class="sd">    - Accept some redundancy</span>
+<span class="sd">        </span>
+<span class="sd">    For Balanced Results:</span>
+<span class="sd">    - Use lambda = 0.6-0.7 (current setting)</span>
+<span class="sd">    - Moderate k values (6-8)</span>
+<span class="sd">    - Good compromise for most applications</span>
+<span class="sd">        </span>
+<span class="sd">    Implementation Notes:</span>
+<span class="sd">    </span>
+<span class="sd">    Numerical Stability:</span>
+<span class="sd">    - Small epsilon (1e-12) added to prevent division by zero</span>
+<span class="sd">    - Cosine similarity handles normalized vectors robustly</span>
+<span class="sd">    - Float precision sufficient for similarity calculations</span>
+<span class="sd">        </span>
+<span class="sd">    Edge Cases:</span>
+<span class="sd">    - Empty candidate list: Returns empty result</span>
+<span class="sd">    - k &gt; candidates: Returns all candidates</span>
+<span class="sd">    - Single candidate: Returns that candidate regardless of lambda</span>
+<span class="sd">        </span>
+<span class="sd">    Optimization Opportunities:</span>
+<span class="sd">    - Vector similarity could be pre-computed and cached</span>
+<span class="sd">    - Parallel processing for large candidate sets</span>
+<span class="sd">    - Early termination for very low diversity scores</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">candidates_vecs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">query_vec</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">cos</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="n">na</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">@</span> <span class="n">a</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mf">1e-12</span>
+        <span class="n">nb</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">@</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mf">1e-12</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">((</span><span class="n">a</span> <span class="o">@</span> <span class="n">b</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">na</span> <span class="o">*</span> <span class="n">nb</span><span class="p">))</span>
+
+    <span class="n">sims</span> <span class="o">=</span> <span class="p">[</span><span class="n">cos</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">V</span><span class="p">]</span>
+    <span class="n">selected</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">remaining</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)))</span>
+
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">min</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">V</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">selected</span><span class="p">:</span>
+            <span class="c1"># pick the highest similarity first</span>
+            <span class="n">best</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">remaining</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">sims</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">selected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+            <span class="n">remaining</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">best_idx</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">best_score</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1e9</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">remaining</span><span class="p">:</span>
+            <span class="n">max_div</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">cos</span><span class="p">(</span><span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">V</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">])</span> <span class="k">if</span> <span class="n">selected</span> <span class="k">else</span> <span class="mf">0.0</span>
+            <span class="n">score</span> <span class="o">=</span> <span class="n">lambda_mult</span> <span class="o">*</span> <span class="n">sims</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">lambda_mult</span><span class="p">)</span> <span class="o">*</span> <span class="n">max_div</span>
+            <span class="k">if</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="n">best_score</span><span class="p">:</span>
+                <span class="n">best_score</span> <span class="o">=</span> <span class="n">score</span>
+                <span class="n">best_idx</span> <span class="o">=</span> <span class="n">i</span>
+        <span class="n">selected</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best_idx</span><span class="p">)</span>
+        <span class="n">remaining</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">best_idx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">selected</span></div>
+
+
+<div class="viewcode-block" id="hybrid_search">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.hybrid_search">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hybrid_search</span><span class="p">(</span>
+    <span class="n">client</span><span class="p">:</span> <span class="n">QdrantClient</span><span class="p">,</span>
+    <span class="n">settings</span><span class="p">:</span> <span class="n">Settings</span><span class="p">,</span>
+    <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">embeddings</span><span class="p">:</span> <span class="n">AzureOpenAIEmbeddings</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Perform hybrid search combining semantic similarity and text-based matching.</span>
+<span class="sd">    </span>
+<span class="sd">    This function implements a sophisticated retrieval strategy that leverages both</span>
+<span class="sd">    semantic understanding and traditional text search to provide high-quality,</span>
+<span class="sd">    relevant results with minimal redundancy.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        client: Qdrant client for database operations</span>
+<span class="sd">        settings: Configuration object containing search parameters</span>
+<span class="sd">        query: User&#39;s search query string</span>
+<span class="sd">        embeddings: Embedding model for semantic search</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        List[ScoredPoint]: Ranked list of relevant document chunks</span>
+<span class="sd">        </span>
+<span class="sd">    Hybrid Search Strategy Overview:</span>
+<span class="sd">    </span>
+<span class="sd">    1. SEMANTIC SEARCH (Vector Similarity):</span>
+<span class="sd">       - Converts query to embedding vector</span>
+<span class="sd">       - Performs approximate nearest neighbor search using HNSW index</span>
+<span class="sd">       - Retrieves top_n_semantic candidates based on cosine similarity</span>
+<span class="sd">       - Provides semantic understanding of query intent</span>
+<span class="sd">        </span>
+<span class="sd">    2. TEXT-BASED PREFILTERING:</span>
+<span class="sd">       - Uses full-text search capabilities (BM25 scoring)</span>
+<span class="sd">       - Identifies documents containing query keywords/phrases</span>
+<span class="sd">       - Creates a set of text-relevant document IDs</span>
+<span class="sd">       - Acts as a relevance filter for semantic results</span>
+<span class="sd">        </span>
+<span class="sd">    3. SCORE FUSION &amp; NORMALIZATION:</span>
+<span class="sd">       - Normalizes semantic scores to [0,1] range for fair comparison</span>
+<span class="sd">       - Applies alpha weight to balance semantic vs. text relevance</span>
+<span class="sd">       - Adds text_boost for results matching both criteria</span>
+<span class="sd">       - Creates unified relevance scoring</span>
+<span class="sd">        </span>
+<span class="sd">    4. RESULT DIVERSIFICATION (Optional MMR):</span>
+<span class="sd">       - Applies Maximal Marginal Relevance to reduce redundancy</span>
+<span class="sd">       - Balances relevance with diversity using mmr_lambda parameter</span>
+<span class="sd">       - Selects final_k results from top candidates</span>
+<span class="sd">        </span>
+<span class="sd">    Algorithm Flow:</span>
+<span class="sd">    </span>
+<span class="sd">    Phase 1: Semantic Retrieval</span>
+<span class="sd">    - Query embedding generation</span>
+<span class="sd">    - HNSW-based vector search</span>
+<span class="sd">    - Score normalization for fusion</span>
+<span class="sd">        </span>
+<span class="sd">    Phase 2: Text Matching</span>
+<span class="sd">    - Full-text search with MatchText filter</span>
+<span class="sd">    - ID collection for hybrid scoring</span>
+<span class="sd">    - Performance optimization with pagination</span>
+<span class="sd">        </span>
+<span class="sd">    Phase 3: Score Fusion</span>
+<span class="sd">    - Linear combination of semantic and text scores</span>
+<span class="sd">    - Boost application for hybrid matches</span>
+<span class="sd">    - Ranking by fused scores</span>
+<span class="sd">        </span>
+<span class="sd">    Phase 4: Result Selection</span>
+<span class="sd">    - Top-N selection or MMR diversification</span>
+<span class="sd">    - Final result ordering and return</span>
+<span class="sd">        </span>
+<span class="sd">    Performance Characteristics:</span>
+<span class="sd">    </span>
+<span class="sd">    Time Complexity:</span>
+<span class="sd">    - Semantic search: O(log n) with HNSW index</span>
+<span class="sd">    - Text search: O(m) where m is text matches</span>
+<span class="sd">    - Score fusion: O(k) where k is semantic candidates</span>
+<span class="sd">    - MMR: O(k²) for diversity computation</span>
+<span class="sd">        </span>
+<span class="sd">    Memory Usage:</span>
+<span class="sd">    - Vector storage: Quantized vectors in memory</span>
+<span class="sd">    - Score storage: Temporary arrays for fusion</span>
+<span class="sd">    - Result storage: Final selected points</span>
+<span class="sd">        </span>
+<span class="sd">    Quality Metrics:</span>
+<span class="sd">    </span>
+<span class="sd">    Recall (Completeness):</span>
+<span class="sd">    - Semantic search: High recall for conceptual queries</span>
+<span class="sd">    - Text search: High recall for keyword queries</span>
+<span class="sd">    - Hybrid approach: Combines strengths of both</span>
+<span class="sd">        </span>
+<span class="sd">    Precision (Relevance):</span>
+<span class="sd">    - Score fusion: Balances multiple relevance signals</span>
+<span class="sd">    - Text boost: Rewards multi-criteria matches</span>
+<span class="sd">    - MMR: Reduces redundant results</span>
+<span class="sd">        </span>
+<span class="sd">    Diversity:</span>
+<span class="sd">    - MMR algorithm: Maximizes information coverage</span>
+<span class="sd">    - Lambda parameter: Controls diversity vs. relevance trade-off</span>
+<span class="sd">    - Result variety: Better user experience</span>
+<span class="sd">        </span>
+<span class="sd">    Tuning Guidelines:</span>
+<span class="sd">    </span>
+<span class="sd">    For High Precision:</span>
+<span class="sd">    - Increase alpha (0.8-0.9): Prioritize semantic similarity</span>
+<span class="sd">    - Increase text_boost (0.3-0.5): Reward text matches</span>
+<span class="sd">    - Decrease mmr_lambda (0.7-0.9): Prioritize relevance</span>
+<span class="sd">        </span>
+<span class="sd">    For High Recall:</span>
+<span class="sd">    - Increase top_n_semantic (50-100): More candidates</span>
+<span class="sd">    - Increase top_n_text (150-200): More text matches</span>
+<span class="sd">    - Decrease alpha (0.5-0.7): Balance search strategies</span>
+<span class="sd">        </span>
+<span class="sd">    For High Diversity:</span>
+<span class="sd">    - Enable MMR (use_mmr=True)</span>
+<span class="sd">    - Decrease mmr_lambda (0.3-0.6): Prioritize diversity</span>
+<span class="sd">    - Increase final_k (8-12): More diverse results</span>
+<span class="sd">        </span>
+<span class="sd">    Use Case Optimizations:</span>
+<span class="sd">    </span>
+<span class="sd">    Technical Documentation:</span>
+<span class="sd">    - High alpha (0.8-0.9): Semantic understanding critical</span>
+<span class="sd">    - High text_boost (0.3-0.4): Technical terms important</span>
+<span class="sd">    - MMR enabled: Diverse technical perspectives</span>
+<span class="sd">        </span>
+<span class="sd">    General Knowledge:</span>
+<span class="sd">    - Balanced alpha (0.6-0.8): Both strategies valuable</span>
+<span class="sd">    - Moderate text_boost (0.2-0.3): Balanced approach</span>
+<span class="sd">    - MMR enabled: Comprehensive coverage</span>
+<span class="sd">        </span>
+<span class="sd">    Factual Queries:</span>
+<span class="sd">    - High alpha (0.7-0.9): Semantic context important</span>
+<span class="sd">    - Low text_boost (0.1-0.2): Facts over style</span>
+<span class="sd">    - MMR optional: Precision over diversity</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># (1) semantica</span>
+    <span class="n">sem</span> <span class="o">=</span> <span class="n">qdrant_semantic_search</span><span class="p">(</span>
+        <span class="n">client</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">,</span>
+        <span class="n">limit</span><span class="o">=</span><span class="n">settings</span><span class="o">.</span><span class="n">top_n_semantic</span><span class="p">,</span> <span class="n">with_vectors</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">sem</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="c1"># (2) full-text prefilter (id)</span>
+    <span class="n">text_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">qdrant_text_prefilter_ids</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">top_n_text</span><span class="p">))</span>
+
+    <span class="c1"># Normalizzazione score semantici per fusione</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">score</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">sem</span><span class="p">]</span>
+    <span class="n">smin</span><span class="p">,</span> <span class="n">smax</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">scores</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>  <span class="c1"># robusto al caso smin==smax</span>
+        <span class="k">return</span> <span class="mf">1.0</span> <span class="k">if</span> <span class="n">smax</span> <span class="o">==</span> <span class="n">smin</span> <span class="k">else</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">smin</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">smax</span> <span class="o">-</span> <span class="n">smin</span><span class="p">)</span>
+
+    <span class="c1"># (3) fusione con boost testuale</span>
+    <span class="n">fused</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># (idx, fused_score, point)</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sem</span><span class="p">):</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">score</span><span class="p">)</span>                    <span class="c1"># [0..1]</span>
+        <span class="n">fuse</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">base</span>
+        <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">text_ids</span><span class="p">:</span>
+            <span class="n">fuse</span> <span class="o">+=</span> <span class="n">settings</span><span class="o">.</span><span class="n">text_boost</span>         <span class="c1"># boost additivo</span>
+        <span class="n">fused</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">idx</span><span class="p">,</span> <span class="n">fuse</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span>
+
+    <span class="c1"># ordina per fused_score desc</span>
+    <span class="n">fused</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># MMR opzionale per diversificare i top-K</span>
+    <span class="k">if</span> <span class="n">settings</span><span class="o">.</span><span class="n">use_mmr</span><span class="p">:</span>
+        <span class="n">qv</span> <span class="o">=</span> <span class="n">embeddings</span><span class="o">.</span><span class="n">embed_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="c1"># prendiamo i primi N dopo fusione (es. 30) e poi MMR per final_k</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">fused</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">final_k</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">final_k</span><span class="p">))</span>
+        <span class="n">cut</span> <span class="o">=</span> <span class="n">fused</span><span class="p">[:</span><span class="n">N</span><span class="p">]</span>
+        <span class="n">vecs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">vector</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cut</span><span class="p">]</span>
+        <span class="n">mmr_idx</span> <span class="o">=</span> <span class="n">mmr_select</span><span class="p">(</span><span class="n">qv</span><span class="p">,</span> <span class="n">vecs</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">final_k</span><span class="p">,</span> <span class="n">settings</span><span class="o">.</span><span class="n">mmr_lambda</span><span class="p">)</span>
+        <span class="n">picked</span> <span class="o">=</span> <span class="p">[</span><span class="n">cut</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">mmr_idx</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">picked</span>
+
+    <span class="c1"># altrimenti, prendi i primi final_k dopo fusione</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">fused</span><span class="p">[:</span><span class="n">settings</span><span class="o">.</span><span class="n">final_k</span><span class="p">]]</span></div>
+
+
+<span class="c1"># =========================</span>
+<span class="c1"># Prompt/Chain per generazione con citazioni</span>
+<span class="c1"># =========================</span>
+
+<div class="viewcode-block" id="format_docs_for_prompt">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.format_docs_for_prompt">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">format_docs_for_prompt</span><span class="p">(</span><span class="n">points</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+        <span class="n">pay</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">payload</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">pay</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
+        <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[source:</span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">pay</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;text&#39;</span><span class="p">,</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="build_rag_chain">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.build_rag_chain">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_rag_chain</span><span class="p">(</span><span class="n">llm</span><span class="p">):</span>
+    <span class="n">system_prompt</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;Sei un assistente tecnico. Rispondi in italiano, conciso e accurato. &quot;</span>
+        <span class="s2">&quot;Usa ESCLUSIVAMENTE le informazioni presenti nel CONTENUTO. &quot;</span>
+        <span class="s2">&quot;Se non è presente, dichiara: &#39;Non è presente nel contesto fornito.&#39; &quot;</span>
+        <span class="s2">&quot;Cita sempre le fonti nel formato [source:FILE].&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">prompt</span> <span class="o">=</span> <span class="n">ChatPromptTemplate</span><span class="o">.</span><span class="n">from_messages</span><span class="p">([</span>
+        <span class="p">(</span><span class="s2">&quot;system&quot;</span><span class="p">,</span> <span class="n">system_prompt</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;human&quot;</span><span class="p">,</span>
+         <span class="s2">&quot;Domanda:</span><span class="se">\n</span><span class="si">{question}</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+         <span class="s2">&quot;CONTENUTO:</span><span class="se">\n</span><span class="si">{context}</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+         <span class="s2">&quot;Istruzioni:</span><span class="se">\n</span><span class="s2">&quot;</span>
+         <span class="s2">&quot;1) Risposta basata solo sul contenuto.</span><span class="se">\n</span><span class="s2">&quot;</span>
+         <span class="s2">&quot;2) Includi citazioni [source:...].</span><span class="se">\n</span><span class="s2">&quot;</span>
+         <span class="s2">&quot;3) Niente invenzioni.&quot;</span><span class="p">)</span>
+    <span class="p">])</span>
+
+    <span class="c1">#ddgs_runnable = RunnableLambda(lambda q: ddgs_search(q, max_results=5))</span>
+    <span class="c1"># combined_context = (</span>
+    <span class="c1">#     RunnableParallel(</span>
+    <span class="c1">#         RunnablePassthrough(),  # tua conoscenza interna</span>
+    <span class="c1">#         web = ddgs_runnable                       # risultati DDG sulla stessa query</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># )</span>
+    <span class="n">chain</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="n">RunnablePassthrough</span><span class="p">(),</span>  <span class="c1"># stringa già formattata</span>
+            <span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="n">RunnablePassthrough</span><span class="p">(),</span>
+        <span class="p">}</span>
+        <span class="o">|</span> <span class="n">prompt</span>
+        <span class="o">|</span> <span class="n">llm</span>
+        <span class="o">|</span> <span class="n">StrOutputParser</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">chain</span></div>
+
+
+<div class="viewcode-block" id="get_contexts_for_question">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.get_contexts_for_question">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_contexts_for_question</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">,</span> <span class="n">question</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the top-k document chunks used as context for a question.</span>
+<span class="sd">    </span>
+<span class="sd">    Retrieves relevant document chunks for a given question using hybrid search</span>
+<span class="sd">    and extracts only the text content for use as context in RAG evaluation.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        client: Qdrant client for database operations.</span>
+<span class="sd">        settings: Configuration object with search parameters.</span>
+<span class="sd">        embeddings: Embeddings model for query encoding.</span>
+<span class="sd">        question (str): Question to find relevant context for.</span>
+<span class="sd">        k (int): Number of context chunks to retrieve. Range: [1, 100].</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        List[str]: List of text strings representing the most relevant</span>
+<span class="sd">            document chunks for the question.</span>
+<span class="sd">    </span>
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; client = get_qdrant_client(Settings())</span>
+<span class="sd">        &gt;&gt;&gt; settings = Settings()</span>
+<span class="sd">        &gt;&gt;&gt; embeddings = get_embeddings(settings)</span>
+<span class="sd">        &gt;&gt;&gt; contexts = get_contexts_for_question(client, settings, embeddings, &quot;What is AI?&quot;, 3)</span>
+<span class="sd">        &gt;&gt;&gt; len(contexts) &lt;= 3</span>
+<span class="sd">        True</span>
+<span class="sd">        &gt;&gt;&gt; all(isinstance(ctx, str) for ctx in contexts)</span>
+<span class="sd">        True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="n">hybrid_search</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">question</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;text&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="extract_context_texts">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.extract_context_texts">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_context_texts</span><span class="p">(</span><span class="n">points</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract individual context texts from Qdrant points for RAGAS evaluation.</span>
+<span class="sd">    </span>
+<span class="sd">    Extracts text content from Qdrant points for use in RAGAS (RAG Assessment)</span>
+<span class="sd">    evaluation metrics. Specifically designed to provide context texts for</span>
+<span class="sd">    evaluating retrieval quality.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        points (Iterable[Any]): Iterable of Qdrant points with payload containing</span>
+<span class="sd">            &#39;text&#39; field.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        List[str]: List of text strings extracted from the points&#39; payloads.</span>
+<span class="sd">    </span>
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; class MockPoint:</span>
+<span class="sd">        ...     def __init__(self, text):</span>
+<span class="sd">        ...         self.payload = {&quot;text&quot;: text}</span>
+<span class="sd">        &gt;&gt;&gt; points = [MockPoint(&quot;Context 1&quot;), MockPoint(&quot;Context 2&quot;)]</span>
+<span class="sd">        &gt;&gt;&gt; texts = extract_context_texts(points)</span>
+<span class="sd">        &gt;&gt;&gt; texts</span>
+<span class="sd">        [&#39;Context 1&#39;, &#39;Context 2&#39;]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">context_texts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+        <span class="n">pay</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">payload</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">context_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pay</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;text&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">context_texts</span></div>
+
+
+<div class="viewcode-block" id="run_rag_qdrant">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.run_rag_qdrant">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_rag_qdrant</span><span class="p">(</span><span class="n">question</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">SETTINGS</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">get_embeddings</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">llm</span> <span class="o">=</span> <span class="n">get_llm</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>  <span class="c1"># opzionale</span>
+
+    <span class="c1"># 1) Client Qdrant</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_qdrant_client</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="c1"># 2) Dati -&gt; chunk</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="n">load_real_documents_from_folder</span><span class="p">(</span><span class="s2">&quot;documents&quot;</span><span class="p">)</span>
+    <span class="n">sanitized_docs</span> <span class="o">=</span> <span class="n">sanitize_documents</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>
+    <span class="n">chunks</span> <span class="o">=</span> <span class="n">split_documents</span><span class="p">(</span><span class="n">sanitized_docs</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+
+    <span class="c1"># 3) Crea (o ricrea) collection</span>
+    <span class="c1"># Per Azure OpenAI text-embedding-3-small la dimensione è 1536</span>
+    <span class="c1"># vector_size = 1536</span>
+    <span class="n">test_embedding</span> <span class="o">=</span> <span class="n">embeddings</span><span class="o">.</span><span class="n">embed_query</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+    <span class="n">vector_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_embedding</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Embedding vector size: </span><span class="si">{</span><span class="n">vector_size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">recreate_collection_for_rag</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">vector_size</span><span class="p">)</span>
+
+    <span class="c1"># 4) Upsert chunks</span>
+    <span class="n">upsert_chunks</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+
+    <span class="c1"># 5) Query ibrida</span>
+    <span class="n">questions</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">questions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">question</span><span class="p">)</span>
+    <span class="c1"># q=&quot;python application fields&quot;</span>
+    <span class="c1"># results_ddgs = ddgs_search(q, max_results=5)</span>
+    <span class="c1"># # ddgs_runnable = RunnableLambda(lambda q: ddgs_search(q, max_results=5))</span>
+    <span class="c1"># web_results = results_ddgs</span>
+    <span class="c1"># print(&quot;=====DDGS=====&quot;)</span>
+    <span class="c1"># print(web_results)</span>
+    <span class="c1"># print(&quot;==============&quot;)</span>
+    <span class="c1"># #answer = &quot;&quot;</span>
+
+    <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">questions</span><span class="p">:</span>
+        <span class="n">hits</span> <span class="o">=</span> <span class="n">hybrid_search</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Q:&quot;</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hits</span><span class="p">:</span>
+            <span class="n">answer</span> <span class="o">=</span> <span class="s2">&quot;Nessun risultato.&quot;</span>
+            <span class="k">continue</span>
+
+        
+
+        <span class="c1"># Mostra id/score di debug</span>
+        <span class="c1"># for p in hits:</span>
+        <span class="c1">#     print(f&quot;- id={p.id} score={p.score:.4f} src={p.payload.get(&#39;source&#39;)}&quot;)</span>
+        <span class="c1">#     answer += f&quot;{p.payload}\n&quot;</span>
+        
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">hits</span><span class="p">:</span>
+            <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;text&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">score</span><span class="p">,</span>
+                <span class="c1"># ... altri campi</span>
+            <span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">chunks</span></div>
+
+            
+    <span class="c1">#return answer</span>
+
+<span class="c1"># =========================</span>
+<span class="c1"># Main end-to-end demo</span>
+<span class="c1"># =========================</span>
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../api/utils_rag_qdrant_hybrid.html#utils.rag_qdrant_hybrid.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Main execution function demonstrating the complete RAG pipeline.</span>
+<span class="sd">    </span>
+<span class="sd">    This function orchestrates the entire RAG workflow from document ingestion</span>
+<span class="sd">    to intelligent question answering, showcasing the system&#39;s capabilities</span>
+<span class="sd">    and providing a template for production deployment.</span>
+<span class="sd">    </span>
+<span class="sd">    Pipeline Overview:</span>
+<span class="sd">    </span>
+<span class="sd">    1. SYSTEM INITIALIZATION:</span>
+<span class="sd">       - Load configuration settings</span>
+<span class="sd">       - Initialize embedding model</span>
+<span class="sd">       - Configure LLM (optional)</span>
+<span class="sd">       - Establish database connection</span>
+<span class="sd">        </span>
+<span class="sd">    2. DOCUMENT PROCESSING:</span>
+<span class="sd">       - Load or simulate document corpus</span>
+<span class="sd">       - Split documents into manageable chunks</span>
+<span class="sd">       - Generate vector embeddings for each chunk</span>
+<span class="sd">        </span>
+<span class="sd">    3. VECTOR DATABASE SETUP:</span>
+<span class="sd">       - Create/configure Qdrant collection</span>
+<span class="sd">       - Set up HNSW indexing and payload indices</span>
+<span class="sd">       - Optimize for semantic search performance</span>
+<span class="sd">        </span>
+<span class="sd">    4. DATA INGESTION:</span>
+<span class="sd">       - Store document chunks with metadata</span>
+<span class="sd">       - Index vectors for fast retrieval</span>
+<span class="sd">       - Ensure data consistency and availability</span>
+<span class="sd">        </span>
+<span class="sd">    5. INTELLIGENT RETRIEVAL:</span>
+<span class="sd">       - Process user queries through hybrid search</span>
+<span class="sd">       - Combine semantic and text-based matching</span>
+<span class="sd">       - Apply MMR for result diversification</span>
+<span class="sd">        </span>
+<span class="sd">    6. CONTENT GENERATION:</span>
+<span class="sd">       - Use LLM for intelligent answer generation</span>
+<span class="sd">       - Fall back to content display if LLM unavailable</span>
+<span class="sd">       - Provide source citations and context</span>
+<span class="sd">        </span>
+<span class="sd">    Performance Characteristics:</span>
+<span class="sd">    </span>
+<span class="sd">    Initialization Time:</span>
+<span class="sd">    - Embedding model: 2-10 seconds (depends on model size)</span>
+<span class="sd">    - LLM connection: 0.1-5 seconds (depends on service)</span>
+<span class="sd">    - Database setup: 1-5 seconds (depends on collection size)</span>
+<span class="sd">        </span>
+<span class="sd">    Processing Time:</span>
+<span class="sd">    - Document chunking: Linear with document count</span>
+<span class="sd">    - Vector generation: Linear with chunk count</span>
+<span class="sd">    - Database indexing: O(n log n) with HNSW construction</span>
+<span class="sd">        </span>
+<span class="sd">    Query Time:</span>
+<span class="sd">    - Semantic search: Sub-millisecond with HNSW</span>
+<span class="sd">    - Text search: Millisecond range with payload indices</span>
+<span class="sd">    - Result fusion: Linear with candidate count</span>
+<span class="sd">    - MMR diversification: Quadratic with candidate count</span>
+<span class="sd">        </span>
+<span class="sd">    Memory Usage:</span>
+<span class="sd">    - Embedding model: 100MB-2GB (depends on model)</span>
+<span class="sd">    - Vector storage: 4 bytes × dimensions × chunks (quantized)</span>
+<span class="sd">    - Payload storage: Variable based on metadata size</span>
+<span class="sd">    - LLM context: Depends on model and input size</span>
+<span class="sd">        </span>
+<span class="sd">    Scalability Considerations:</span>
+<span class="sd">    </span>
+<span class="sd">    Document Volume:</span>
+<span class="sd">    - Small (&lt;1K docs): Current settings optimal</span>
+<span class="sd">    - Medium (1K-100K docs): Consider batch processing</span>
+<span class="sd">    - Large (100K+ docs): Implement streaming ingestion</span>
+<span class="sd">        </span>
+<span class="sd">    Vector Dimensions:</span>
+<span class="sd">    - 384 dimensions: Fast, memory-efficient, good quality</span>
+<span class="sd">    - 768 dimensions: Higher quality, more memory, slower</span>
+<span class="sd">    - 1024+ dimensions: Maximum quality, significant overhead</span>
+<span class="sd">        </span>
+<span class="sd">    Collection Management:</span>
+<span class="sd">    - Single collection: Simple, good for small-medium datasets</span>
+<span class="sd">    - Multiple collections: Better for large, diverse datasets</span>
+<span class="sd">    - Sharding: Consider for very large datasets (&gt;1M vectors)</span>
+<span class="sd">        </span>
+<span class="sd">    Error Handling Strategy:</span>
+<span class="sd">    </span>
+<span class="sd">    Graceful Degradation:</span>
+<span class="sd">    - LLM failures: Fall back to content display</span>
+<span class="sd">    - Database errors: Informative error messages</span>
+<span class="sd">    - Network issues: Retry logic for transient failures</span>
+<span class="sd">        </span>
+<span class="sd">    Resource Management:</span>
+<span class="sd">    - Memory monitoring: Prevent OOM conditions</span>
+<span class="sd">    - Connection pooling: Efficient database usage</span>
+<span class="sd">    - Cleanup: Proper resource deallocation</span>
+<span class="sd">        </span>
+<span class="sd">    Monitoring &amp; Logging:</span>
+<span class="sd">    - Performance metrics: Track response times</span>
+<span class="sd">    - Error rates: Monitor system health</span>
+<span class="sd">    - Usage patterns: Understand user behavior</span>
+<span class="sd">        </span>
+<span class="sd">    Production Deployment Considerations:</span>
+<span class="sd">    </span>
+<span class="sd">    Environment Configuration:</span>
+<span class="sd">    - Use environment variables for sensitive data</span>
+<span class="sd">    - Separate configs for dev/staging/production</span>
+<span class="sd">    - Implement proper logging and monitoring</span>
+<span class="sd">        </span>
+<span class="sd">    Security:</span>
+<span class="sd">    - API key management: Secure storage and rotation</span>
+<span class="sd">    - Network security: HTTPS, firewall rules</span>
+<span class="sd">    - Access control: User authentication and authorization</span>
+<span class="sd">        </span>
+<span class="sd">    Performance Optimization:</span>
+<span class="sd">    - Caching: Redis for frequently accessed data</span>
+<span class="sd">    - Load balancing: Distribute requests across instances</span>
+<span class="sd">    - CDN: Static content delivery optimization</span>
+<span class="sd">        </span>
+<span class="sd">    Maintenance:</span>
+<span class="sd">    - Regular backups: Database and configuration</span>
+<span class="sd">    - Model updates: Periodic embedding model refresh</span>
+<span class="sd">    - Performance tuning: Monitor and adjust parameters</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">SETTINGS</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">get_embeddings</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">llm</span> <span class="o">=</span> <span class="n">get_llm</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>  <span class="c1"># opzionale</span>
+
+    <span class="c1"># 1) Client Qdrant</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">get_qdrant_client</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+    <span class="c1"># 2) Dati -&gt; chunk</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="n">simulate_corpus</span><span class="p">()</span>
+    <span class="n">chunks</span> <span class="o">=</span> <span class="n">split_documents</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    
+    <span class="c1"># 3) Crea (o ricrea) collection</span>
+    <span class="c1"># Per Azure OpenAI text-embedding-3-small la dimensione è 1536</span>
+    <span class="c1"># vector_size = 1536</span>
+    <span class="n">test_embedding</span> <span class="o">=</span> <span class="n">embeddings</span><span class="o">.</span><span class="n">embed_query</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+    <span class="n">vector_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_embedding</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Embedding vector size: </span><span class="si">{</span><span class="n">vector_size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">recreate_collection_for_rag</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">vector_size</span><span class="p">)</span>
+
+    <span class="c1"># 4) Upsert chunks</span>
+    <span class="n">upsert_chunks</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+
+    <span class="c1"># 5) Query ibrida</span>
+    <span class="n">questions</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;Cos&#39;è una pipeline RAG e quali sono le sue fasi?&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A cosa serve FAISS e che caratteristiche offre?&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Che cos&#39;è MMR e perché riduce la ridondanza?&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qual è la dimensione degli embedding di all-MiniLM-L6-v2?&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">questions</span><span class="p">:</span>
+        <span class="n">hits</span> <span class="o">=</span> <span class="n">hybrid_search</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&quot;</span> <span class="o">*</span> <span class="mi">80</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Q:&quot;</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">hits</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Nessun risultato.&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Mostra id/score di debug</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">hits</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- id=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> score=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">score</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> src=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;source&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Se LLM configurato: genera</span>
+        <span class="k">if</span> <span class="n">llm</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ctx</span> <span class="o">=</span> <span class="n">format_docs_for_prompt</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span>
+                <span class="n">chain</span> <span class="o">=</span> <span class="n">build_rag_chain</span><span class="p">(</span><span class="n">llm</span><span class="p">)</span>
+                <span class="n">answer</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">invoke</span><span class="p">({</span><span class="s2">&quot;question&quot;</span><span class="p">:</span> <span class="n">q</span><span class="p">,</span> <span class="s2">&quot;context&quot;</span><span class="p">:</span> <span class="n">ctx</span><span class="p">})</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">answer</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">LLM generation failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Falling back to content display...&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Contenuto recuperato:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">format_docs_for_prompt</span><span class="p">(</span><span class="n">hits</span><span class="p">))</span>
+                <span class="nb">print</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Fallback: stampa i chunk per ispezione</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Contenuto recuperato:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">format_docs_for_prompt</span><span class="p">(</span><span class="n">hits</span><span class="p">))</span>
+            <span class="nb">print</span><span class="p">()</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">run_rag_qdrant</span><span class="p">(</span><span class="s2">&quot;aaa&quot;</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Project 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Project overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API reference</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

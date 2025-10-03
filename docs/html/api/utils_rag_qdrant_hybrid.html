@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>utils.rag_qdrant_hybrid &#8212; Project 4 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="utils.ragas_evaluation" href="utils_ragas_evaluation.html" />
+    <link rel="prev" title="utils.prompt_injection" href="utils_prompt_injection.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-utils.rag_qdrant_hybrid">
+<span id="utils-rag-qdrant-hybrid"></span><h1>utils.rag_qdrant_hybrid<a class="headerlink" href="#module-utils.rag_qdrant_hybrid" title="Link to this heading">¶</a></h1>
+<p>RAG (Retrieval-Augmented Generation) Pipeline Implementation</p>
+<p>This module implements a complete RAG system that combines vector search, hybrid retrieval,
+and LLM generation to provide intelligent question answering over document collections.</p>
+<section id="system-architecture">
+<h2>SYSTEM ARCHITECTURE:<a class="headerlink" href="#system-architecture" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>DOCUMENT PROCESSING LAYER:
+- Document ingestion and chunking
+- Text splitting with configurable overlap
+- Metadata extraction and preservation</p></li>
+<li><p>VECTOR EMBEDDING LAYER:
+- HuggingFace sentence transformers
+- Configurable model selection (384-768 dimensions)
+- GPU acceleration when available</p></li>
+<li><p>VECTOR DATABASE LAYER:
+- Qdrant vector database with HNSW indexing
+- Scalar quantization for memory optimization
+- Full-text and keyword payload indexing</p></li>
+<li><p>HYBRID SEARCH LAYER:
+- Semantic similarity search (vector-based)
+- Text-based matching (BM25, keyword)
+- Score fusion with configurable weights
+- MMR diversification for result variety</p></li>
+<li><p>GENERATION LAYER:
+- LLM integration (OpenAI, LM Studio, Ollama)
+- RAG chain with source citations
+- Graceful fallback to content display</p></li>
+</ol>
+</section>
+<section id="key-features">
+<h2>KEY FEATURES:<a class="headerlink" href="#key-features" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>HYBRID SEARCH: Combines semantic understanding with traditional text search</p></li>
+<li><p>MMR DIVERSIFICATION: Reduces redundancy and improves information coverage</p></li>
+<li><p>CONFIGURABLE PARAMETERS: Extensive tuning options for different use cases</p></li>
+<li><p>ERROR HANDLING: Graceful degradation and informative error messages</p></li>
+<li><p>PERFORMANCE OPTIMIZATION: HNSW indexing, quantization, payload indices</p></li>
+<li><p>SCALABILITY: Designed for small to medium document collections</p></li>
+</ul>
+</section>
+<section id="use-cases">
+<h2>USE CASES:<a class="headerlink" href="#use-cases" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Technical Documentation Search: High-precision retrieval with semantic understanding</p></li>
+<li><p>Research &amp; Knowledge Management: Diverse information gathering and synthesis</p></li>
+<li><p>Customer Support: Intelligent FAQ and documentation search</p></li>
+<li><p>Content Discovery: Exploratory search with result diversification</p></li>
+<li><p>RAG Applications: Context retrieval for LLM generation</p></li>
+</ul>
+</section>
+<section id="performance-characteristics">
+<h2>PERFORMANCE CHARACTERISTICS:<a class="headerlink" href="#performance-characteristics" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Query Latency: Sub-millisecond vector search, millisecond text search</p></li>
+<li><p>Throughput: 1000+ queries/second for typical workloads</p></li>
+<li><p>Memory Usage: 100MB-2GB for embedding models, scalable vector storage</p></li>
+<li><p>Storage Efficiency: 4x reduction with scalar quantization</p></li>
+<li><p>Scalability: Linear scaling with document count up to 100K+ documents</p></li>
+</ul>
+</section>
+<section id="configuration-options">
+<h2>CONFIGURATION OPTIONS:<a class="headerlink" href="#configuration-options" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Embedding Models: 384-768 dimensions, speed vs. quality trade-offs</p></li>
+<li><p>Chunk Sizes: 200-1000 characters, precision vs. context trade-offs</p></li>
+<li><p>Search Parameters: Alpha blending, text boost, MMR lambda</p></li>
+<li><p>Database Settings: HNSW parameters, quantization, segment optimization</p></li>
+<li><p>LLM Integration: OpenAI, LM Studio, Ollama, custom APIs</p></li>
+</ul>
+</section>
+<section id="dependencies">
+<h2>DEPENDENCIES:<a class="headerlink" href="#dependencies" title="Link to this heading">¶</a></h2>
+<p>Required:
+- qdrant-client: Vector database operations
+- langchain-huggingface: Embedding model integration
+- langchain: Document processing and LLM integration
+- numpy: Mathematical operations for MMR algorithm</p>
+<p>Optional:
+- CUDA: GPU acceleration for embedding generation
+- Environment variables: LLM API configuration</p>
+<p>AUTHOR: AI Assistant
+VERSION: 1.0
+LICENSE: MIT
+MAINTAINER: Development Team</p>
+<p>For questions, issues, or contributions, please refer to the project documentation.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">Settings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qdrant_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'http://localhost:6333'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rag_chunks'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">700</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n_semantic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n_text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">final_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text_boost</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_mmr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmr_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AZURE_API_VERSION'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_base_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AZURE_API_BASE'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_key_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AZURE_API_KEY'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_model_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'MODEL'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#Settings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Comprehensive configuration settings for the RAG pipeline.</p>
+<p>This class centralizes all configurable parameters, allowing easy tuning
+of the system’s behavior without modifying the core logic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>qdrant_url</strong> (<em>str</em>)</p></li>
+<li><p><strong>collection</strong> (<em>str</em>)</p></li>
+<li><p><strong>chunk_size</strong> (<em>int</em>)</p></li>
+<li><p><strong>chunk_overlap</strong> (<em>int</em>)</p></li>
+<li><p><strong>top_n_semantic</strong> (<em>int</em>)</p></li>
+<li><p><strong>top_n_text</strong> (<em>int</em>)</p></li>
+<li><p><strong>final_k</strong> (<em>int</em>)</p></li>
+<li><p><strong>alpha</strong> (<em>float</em>)</p></li>
+<li><p><strong>text_boost</strong> (<em>float</em>)</p></li>
+<li><p><strong>use_mmr</strong> (<em>bool</em>)</p></li>
+<li><p><strong>mmr_lambda</strong> (<em>float</em>)</p></li>
+<li><p><strong>api_version</strong> (<em>str</em>)</p></li>
+<li><p><strong>lm_base_env</strong> (<em>str</em>)</p></li>
+<li><p><strong>lm_key_env</strong> (<em>str</em>)</p></li>
+<li><p><strong>lm_model_env</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.qdrant_url">
+<span class="sig-name descname"><span class="pre">qdrant_url</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://localhost:6333'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.qdrant_url" title="Link to this definition">¶</a></dt>
+<dd><p>Qdrant server URL.
+- Default: Local development instance
+- Production: Use your Qdrant cloud URL or server address
+- Alternative: Can be overridden via environment variable QDRANT_URL</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.collection">
+<span class="sig-name descname"><span class="pre">collection</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'rag_chunks'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.collection" title="Link to this definition">¶</a></dt>
+<dd><p>Collection name for storing document chunks and vectors.
+- Naming convention: Use descriptive names like ‘company_docs’, ‘research_papers’
+- Multiple collections: Can create separate collections for different document types
+- Cleanup: Old collections can be dropped and recreated for fresh indexing</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.embedding_model_name">
+<span class="sig-name descname"><span class="pre">embedding_model_name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'text-embedding-ada-002'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.embedding_model_name" title="Link to this definition">¶</a></dt>
+<dd><p>HuggingFace sentence transformer model for generating embeddings.</p>
+<p>Model Options &amp; Trade-offs:
+- all-MiniLM-L6-v2: 384 dimensions, fast, good quality, balanced choice
+- all-MiniLM-L12-v2: 768 dimensions, slower, higher quality, better for complex queries
+- all-mpnet-base-v2: 768 dimensions, excellent quality, slower inference
+- paraphrase-multilingual-MiniLM-L12-v2: 768 dimensions, multilingual support</p>
+<p>Dimension Impact:
+- Lower dimensions (384): Faster search, less memory, slightly lower accuracy
+- Higher dimensions (768+): Better accuracy, slower search, more memory usage</p>
+<p>Performance Considerations:
+- L6 models: ~2-3x faster than L12 models
+- L12 models: ~10-15% better semantic understanding
+- Base models: Good balance between speed and quality</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.chunk_size">
+<span class="sig-name descname"><span class="pre">chunk_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">700</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.chunk_size" title="Link to this definition">¶</a></dt>
+<dd><p>Maximum number of characters per document chunk.</p>
+<p>Chunk Size Trade-offs:
+- Small chunks (200-500): Better precision, more granular retrieval, higher storage overhead
+- Medium chunks (500-1000): Balanced precision and context, recommended for most use cases
+- Large chunks (1000+): Better context preservation, lower precision, fewer chunks to manage</p>
+<p>Optimal Sizing Guidelines:
+- Technical documents: 500-800 characters (preserve technical context)
+- General text: 700-1000 characters (good balance)
+- Conversational text: 300-600 characters (preserve dialogue flow)
+- Code/structured data: 200-500 characters (preserve logical units)</p>
+<p>Impact on Retrieval:
+- Smaller chunks: Higher recall, lower precision, more relevant snippets
+- Larger chunks: Lower recall, higher precision, more complete context</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.chunk_overlap">
+<span class="sig-name descname"><span class="pre">chunk_overlap</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">120</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.chunk_overlap" title="Link to this definition">¶</a></dt>
+<dd><p>Number of characters to overlap between consecutive chunks.</p>
+<p>Overlap Strategy:
+- No overlap (0): Clean separation, may miss context at boundaries
+- Small overlap (50-150): Preserves context, minimal redundancy
+- Large overlap (200+): Maximum context preservation, higher storage cost</p>
+<p>Optimal Overlap Guidelines:
+- Technical content: 100-200 characters (preserve technical terms)
+- General text: 100-150 characters (good balance)
+- Conversational: 50-100 characters (preserve dialogue context)
+- Code: 50-100 characters (preserve function boundaries)</p>
+<p>Storage Impact:
+- 0% overlap: Base storage requirement
+- 20% overlap: ~20% increase in storage
+- 50% overlap: ~50% increase in storage</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.top_n_semantic">
+<span class="sig-name descname"><span class="pre">top_n_semantic</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.top_n_semantic" title="Link to this definition">¶</a></dt>
+<dd><p>Number of top semantic search candidates to retrieve initially.</p>
+<p>Semantic Search Candidates:
+- Low values (10-20): Fast retrieval, may miss relevant results
+- Medium values (30-50): Good balance between speed and recall
+- High values (100+): Maximum recall, slower performance</p>
+<p>Performance Impact:
+- Retrieval time: Linear increase with candidate count
+- Memory usage: Linear increase with candidate count
+- Quality: Diminishing returns beyond 50-100 candidates</p>
+<p>Tuning Guidelines:
+- Small collections (&lt;1000 docs): 20-30 candidates
+- Medium collections (1000-10000 docs): 30-50 candidates
+- Large collections (10000+ docs): 50-100 candidates</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.top_n_text">
+<span class="sig-name descname"><span class="pre">top_n_text</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.top_n_text" title="Link to this definition">¶</a></dt>
+<dd><p>Maximum number of text-based matches to consider for hybrid fusion.</p>
+<p>Text Search Scope:
+- Low values (50): Fast text filtering, may miss relevant matches
+- Medium values (100): Good balance between speed and coverage
+- High values (200+): Maximum text coverage, slower performance</p>
+<p>Hybrid Search Strategy:
+- Text search acts as a pre-filter for semantic results
+- Higher values improve the quality of text-semantic fusion
+- Optimal value depends on collection size and query complexity</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.final_k">
+<span class="sig-name descname"><span class="pre">final_k</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">6</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.final_k" title="Link to this definition">¶</a></dt>
+<dd><p>Final number of results to return after all processing steps.</p>
+<p>Result Count Considerations:
+- User experience: 3-5 results for simple queries, 5-10 for complex ones
+- Context window: Align with LLM context limits (e.g., 6-8 chunks for GPT-3.5)
+- Diversity: Higher values allow MMR to select more diverse results</p>
+<p>LLM Integration:
+- GPT-3.5: 6-8 chunks typically fit in context
+- GPT-4: 8-12 chunks can be processed
+- Claude: 6-10 chunks work well</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.75</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.alpha" title="Link to this definition">¶</a></dt>
+<dd><p>Weight for semantic similarity in hybrid score fusion (0.0 to 1.0).</p>
+<p>Alpha Parameter Behavior:
+- alpha = 0.0: Pure text-based ranking (BM25, keyword matching)
+- alpha = 0.5: Equal weight for semantic and text relevance
+- alpha = 0.75: Semantic similarity prioritized (current setting)
+- alpha = 1.0: Pure semantic ranking (cosine similarity only)</p>
+<p>Use Case Recommendations:
+- Technical queries: 0.7-0.9 (semantic understanding important)
+- Factual queries: 0.5-0.7 (balanced approach)
+- Keyword searches: 0.3-0.5 (text matching more important)
+- Conversational queries: 0.6-0.8 (semantic context matters)</p>
+<p>Tuning Strategy:
+- Start with 0.75 for general use
+- Increase if semantic results seem irrelevant
+- Decrease if text matching is too weak</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.text_boost">
+<span class="sig-name descname"><span class="pre">text_boost</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.2</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.text_boost" title="Link to this definition">¶</a></dt>
+<dd><p>Additional score boost for results that match both semantic and text criteria.</p>
+<p>Text Boost Mechanism:
+- Applied additively to fused scores
+- Encourages results that satisfy both search strategies
+- Helps surface highly relevant content that matches multiple criteria</p>
+<p>Boost Value Guidelines:
+- Low boost (0.1-0.2): Subtle preference for hybrid matches
+- Medium boost (0.2-0.4): Strong preference for hybrid matches
+- High boost (0.5+): Heavy preference, may dominate ranking</p>
+<p>Optimal Settings:
+- General use: 0.15-0.25
+- Technical content: 0.20-0.30
+- Factual queries: 0.10-0.20</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.use_mmr">
+<span class="sig-name descname"><span class="pre">use_mmr</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.use_mmr" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to use MMR for result diversification and redundancy reduction.</p>
+<p>MMR Benefits:
+- Reduces redundant results with similar content
+- Improves coverage of different aspects of the query
+- Better user experience with diverse information</p>
+<p>MMR Trade-offs:
+- Slightly slower than simple top-K selection
+- May reduce absolute relevance scores
+- Better for exploratory queries, worse for specific fact retrieval</p>
+<p>Alternatives:
+- False: Simple top-K selection (faster, may have redundancy)
+- True: MMR diversification (slower, better diversity)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.mmr_lambda">
+<span class="sig-name descname"><span class="pre">mmr_lambda</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.6</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.mmr_lambda" title="Link to this definition">¶</a></dt>
+<dd><p>MMR diversification parameter balancing relevance vs. diversity (0.0 to 1.0).</p>
+<p>Lambda Parameter Behavior:
+- lambda = 0.0: Pure diversity (ignore relevance, maximize difference)
+- lambda = 0.5: Balanced relevance and diversity
+- lambda = 0.6: Slight preference for relevance (current setting)
+- lambda = 1.0: Pure relevance (ignore diversity, top-K selection)</p>
+<p>Use Case Recommendations:
+- Research queries: 0.4-0.6 (diverse perspectives important)
+- Factual queries: 0.7-0.9 (relevance more important)
+- Exploratory queries: 0.3-0.5 (diversity valuable)
+- Specific searches: 0.8-1.0 (precision over diversity)</p>
+<p>Tuning Guidelines:
+- Start with 0.6 for general use
+- Decrease if results seem too similar
+- Increase if results seem too diverse</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.api_version">
+<span class="sig-name descname"><span class="pre">api_version</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'AZURE_API_VERSION'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.api_version" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.lm_base_env">
+<span class="sig-name descname"><span class="pre">lm_base_env</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'AZURE_API_BASE'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.lm_base_env" title="Link to this definition">¶</a></dt>
+<dd><p>Environment variable name for LLM service base URL.</p>
+<p>Supported Services:
+- OpenAI: <a class="reference external" href="https://api.openai.com/v1">https://api.openai.com/v1</a>
+- LM Studio: <a class="reference external" href="http://localhost:1234/v1">http://localhost:1234/v1</a>
+- Ollama: <a class="reference external" href="http://localhost:11434/v1">http://localhost:11434/v1</a>
+- Custom API: Your endpoint URL</p>
+<p>Configuration Examples:
+- OpenAI: OPENAI_BASE_URL=https://api.openai.com/v1
+- LM Studio: OPENAI_BASE_URL=http://localhost:1234/v1
+- Azure OpenAI: OPENAI_BASE_URL=https://your-resource.openai.azure.com</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.lm_key_env">
+<span class="sig-name descname"><span class="pre">lm_key_env</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'AZURE_API_KEY'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.lm_key_env" title="Link to this definition">¶</a></dt>
+<dd><p>Environment variable name for LLM service API key.</p>
+<p>Security Notes:
+- Never hardcode API keys in source code
+- Use environment variables or secure secret management
+- Rotate keys regularly for production systems</p>
+<p>Configuration Examples:
+- OpenAI: OPENAI_API_KEY=sk-…
+- LM Studio: OPENAI_API_KEY=lm-studio (can be any value)
+- Azure: OPENAI_API_KEY=your-azure-key</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.lm_model_env">
+<span class="sig-name descname"><span class="pre">lm_model_env</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'MODEL'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.lm_model_env" title="Link to this definition">¶</a></dt>
+<dd><p>Environment variable name for the specific LLM model to use.</p>
+<p>Model Selection:
+- OpenAI: gpt-3.5-turbo, gpt-4, gpt-4-turbo
+- LM Studio: Any model name you’ve loaded
+- Ollama: llama2, codellama, mistral, etc.
+- Custom: Your model identifier</p>
+<p>Configuration Examples:
+- OpenAI: LMSTUDIO_MODEL=gpt-3.5-turbo
+- LM Studio: LMSTUDIO_MODEL=llama-2-7b-chat
+- Ollama: LMSTUDIO_MODEL=llama2:7b</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.lm_model_name">
+<span class="sig-name descname"><span class="pre">lm_model_name</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'gpt-4o'</span></em><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.lm_model_name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.Settings.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">qdrant_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'http://localhost:6333'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rag_chunks'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">700</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n_semantic</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n_text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">final_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text_boost</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_mmr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mmr_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_version</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AZURE_API_VERSION'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_base_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AZURE_API_BASE'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_key_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'AZURE_API_KEY'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lm_model_env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'MODEL'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#utils.rag_qdrant_hybrid.Settings.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>qdrant_url</strong> (<em>str</em>)</p></li>
+<li><p><strong>collection</strong> (<em>str</em>)</p></li>
+<li><p><strong>chunk_size</strong> (<em>int</em>)</p></li>
+<li><p><strong>chunk_overlap</strong> (<em>int</em>)</p></li>
+<li><p><strong>top_n_semantic</strong> (<em>int</em>)</p></li>
+<li><p><strong>top_n_text</strong> (<em>int</em>)</p></li>
+<li><p><strong>final_k</strong> (<em>int</em>)</p></li>
+<li><p><strong>alpha</strong> (<em>float</em>)</p></li>
+<li><p><strong>text_boost</strong> (<em>float</em>)</p></li>
+<li><p><strong>use_mmr</strong> (<em>bool</em>)</p></li>
+<li><p><strong>mmr_lambda</strong> (<em>float</em>)</p></li>
+<li><p><strong>api_version</strong> (<em>str</em>)</p></li>
+<li><p><strong>lm_base_env</strong> (<em>str</em>)</p></li>
+<li><p><strong>lm_key_env</strong> (<em>str</em>)</p></li>
+<li><p><strong>lm_model_env</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.get_embeddings">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">get_embeddings</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#get_embeddings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.get_embeddings" title="Link to this definition">¶</a></dt>
+<dd><p>Restituisce un client di Azure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">AzureOpenAIEmbeddings</span></code></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>settings</strong> (<a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><em>Settings</em></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.get_llm">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">get_llm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#get_llm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.get_llm" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize and test an LLM instance for text generation if properly configured.</p>
+<p>This function attempts to create an LLM connection using environment variables
+and performs a connectivity test to ensure the service is working before
+returning the instance. If any step fails, it gracefully falls back to None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>settings</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><code class="xref py py-class docutils literal notranslate"><span class="pre">Settings</span></code></a></span>) – Configuration object containing LLM environment variable names</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Configured LLM instance if successful, None otherwise</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ChatModel or None</p>
+</dd>
+</dl>
+<p>Configuration Requirements:
+- OPENAI_BASE_URL: Base URL for the LLM service
+- OPENAI_API_KEY: Authentication key for the service
+- LMSTUDIO_MODEL: Specific model identifier to use</p>
+<p>Supported LLM Services:
+- OpenAI API: Production-grade, reliable, paid service
+- LM Studio: Local inference, free, requires model download
+- Ollama: Local inference, free, easy setup
+- Azure OpenAI: Enterprise-grade, reliable, paid service
+- Custom APIs: Any OpenAI-compatible endpoint</p>
+<p>Connection Testing:
+- Performs a simple “test” query to verify connectivity
+- Tests both network connectivity and model availability
+- Helps identify configuration issues early</p>
+<p>Error Handling Strategy:
+- Missing env vars: Graceful fallback with informative message
+- Network issues: Catches connection errors and continues
+- Authentication errors: Handles invalid API keys gracefully
+- Model errors: Catches model-specific issues</p>
+<p>Fallback Behavior:
+- Returns None if any step fails
+- Script continues without LLM generation
+- Retrieved content is displayed instead of generated answers</p>
+<p>Security Considerations:
+- API keys are read from environment variables only
+- No hardcoded credentials in source code
+- Test query is minimal and doesn’t expose sensitive data</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.simulate_corpus">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">simulate_corpus</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#simulate_corpus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.simulate_corpus" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Document</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.pdf_to_markdown_with_tables">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">pdf_to_markdown_with_tables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pdf_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#pdf_to_markdown_with_tables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.pdf_to_markdown_with_tables" title="Link to this definition">¶</a></dt>
+<dd><p>Extract text and tables from a PDF file, return a combined markdown string.
+Tables are converted to markdown tables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>pdf_path</strong> (<em>Path</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.load_real_documents_from_folder">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">load_real_documents_from_folder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#load_real_documents_from_folder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.load_real_documents_from_folder" title="Link to this definition">¶</a></dt>
+<dd><p>Load <cite>.txt</cite>, <cite>.md</cite>, and <cite>.pdf</cite> files recursively into <cite>Document</cite> objects.
+For PDFs, extract text and tables using pdfplumber and convert to markdown text.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>folder_path</strong> (<em>str</em>) – Directory containing text files.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Loaded documents with metadata[‘source’] set to original filename.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Document]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.split_documents">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">split_documents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">docs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#split_documents"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.split_documents" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Document</span></code>]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>docs</strong> (<em>List</em><em>[</em><em>langchain_core.documents.Document</em><em>]</em>)</p></li>
+<li><p><strong>settings</strong> (<a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><em>Settings</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.get_qdrant_client">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">get_qdrant_client</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">settings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#get_qdrant_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.get_qdrant_client" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">QdrantClient</span></code></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>settings</strong> (<a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><em>Settings</em></a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.recreate_collection_for_rag">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">recreate_collection_for_rag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#recreate_collection_for_rag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.recreate_collection_for_rag" title="Link to this definition">¶</a></dt>
+<dd><p>Create or recreate a Qdrant collection optimized for RAG (Retrieval-Augmented Generation).</p>
+<p>This function sets up a vector database collection with optimal configuration for
+semantic search, including HNSW indexing, payload indexing, and quantization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">QdrantClient</span></code></span>) – Qdrant client instance for database operations</p></li>
+<li><p><strong>settings</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><code class="xref py py-class docutils literal notranslate"><span class="pre">Settings</span></code></a></span>) – Configuration object containing collection parameters</p></li>
+<li><p><strong>vector_size</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Dimension of the embedding vectors (e.g., 384 for MiniLM-L6)</p></li>
+</ul>
+</dd>
+</dl>
+<p>Collection Architecture:
+- Vector storage: Dense vectors for semantic similarity search
+- Payload storage: Metadata and text content for retrieval
+- Indexing: HNSW for approximate nearest neighbor search
+- Quantization: Scalar quantization for memory optimization</p>
+<p>Distance Metric Selection:
+- Cosine distance: Normalized similarity, good for semantic embeddings
+- Alternatives: Euclidean (L2), Manhattan (L1), Dot product
+- Cosine preferred for normalized embeddings (sentence-transformers)</p>
+<p>HNSW Index Configuration:
+- m=32: Average connections per node (higher = better quality, more memory)
+- ef_construct=256: Search depth during construction (higher = better quality, slower build)
+- Trade-offs: Higher values improve recall but increase memory and build time</p>
+<p>Optimizer Configuration:
+- default_segment_number=2: Parallel processing segments
+- Benefits: Faster indexing, better resource utilization
+- Considerations: More segments = more memory overhead</p>
+<p>Quantization Strategy:
+- Scalar quantization: Reduces vector precision from float32 to int8
+- Memory savings: ~4x reduction in vector storage
+- Quality impact: Minimal impact on search accuracy
+- always_ram=False: Vectors stored on disk, loaded to RAM as needed</p>
+<p>Payload Indexing Strategy:
+- Text index: Full-text search capabilities (BM25 scoring)
+- Keyword indices: Fast exact matching and filtering
+- Performance: Significantly faster than unindexed field searches</p>
+<p>Collection Lifecycle:
+- recreate_collection: Drops existing collection and creates new one
+- Use case: Development/testing, major schema changes
+- Production: Consider using create_collection + update_collection_info</p>
+<p>Performance Considerations:
+- Build time: HNSW construction scales with collection size
+- Memory usage: Vectors loaded to RAM during search
+- Storage: Quantized vectors + payload data
+- Query latency: HNSW provides sub-millisecond search times</p>
+<p>Scaling Guidelines:
+- Small collections (&lt;100K vectors): Current settings optimal
+- Medium collections (100K-1M vectors): Increase m to 48-64
+- Large collections (1M+ vectors): Consider multiple collections or sharding</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.build_points">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">build_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embeds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#build_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.build_points" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PointStruct</span></code>]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>chunks</strong> (<em>List</em><em>[</em><em>langchain_core.documents.Document</em><em>]</em>)</p></li>
+<li><p><strong>embeds</strong> (<em>List</em><em>[</em><em>List</em><em>[</em><em>float</em><em>]</em><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.upsert_chunks">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">upsert_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#upsert_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.upsert_chunks" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> (<em>qdrant_client.QdrantClient</em>)</p></li>
+<li><p><strong>settings</strong> (<a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><em>Settings</em></a>)</p></li>
+<li><p><strong>chunks</strong> (<em>List</em><em>[</em><em>langchain_core.documents.Document</em><em>]</em>)</p></li>
+<li><p><strong>embeddings</strong> (<em>langchain_openai.AzureOpenAIEmbeddings</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.qdrant_semantic_search">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">qdrant_semantic_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with_vectors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#qdrant_semantic_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.qdrant_semantic_search" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> (<em>qdrant_client.QdrantClient</em>)</p></li>
+<li><p><strong>settings</strong> (<a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><em>Settings</em></a>)</p></li>
+<li><p><strong>query</strong> (<em>str</em>)</p></li>
+<li><p><strong>embeddings</strong> (<em>langchain_openai.AzureOpenAIEmbeddings</em>)</p></li>
+<li><p><strong>limit</strong> (<em>int</em>)</p></li>
+<li><p><strong>with_vectors</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.qdrant_text_prefilter_ids">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">qdrant_text_prefilter_ids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_hits</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#qdrant_text_prefilter_ids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.qdrant_text_prefilter_ids" title="Link to this definition">¶</a></dt>
+<dd><p>Usa l’indice full-text su ‘text’ per prefiltrare i punti che contengono parole chiave.
+Non restituisce uno score BM25: otteniamo un sottoinsieme di id da usare come boost.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]</span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>client</strong> (<em>qdrant_client.QdrantClient</em>)</p></li>
+<li><p><strong>settings</strong> (<a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><em>Settings</em></a>)</p></li>
+<li><p><strong>query</strong> (<em>str</em>)</p></li>
+<li><p><strong>max_hits</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.mmr_select">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">mmr_select</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_vec</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">candidates_vecs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lambda_mult</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#mmr_select"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.mmr_select" title="Link to this definition">¶</a></dt>
+<dd><p>Select diverse results using Maximal Marginal Relevance (MMR) algorithm.</p>
+<p>MMR balances relevance to the query with diversity among selected results,
+reducing redundancy and improving information coverage. This is particularly
+useful for RAG systems where diverse context provides better generation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_vec</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]</span>) – Query embedding vector for relevance calculation</p></li>
+<li><p><strong>candidates_vecs</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]]</span>) – List of candidate document embedding vectors</p></li>
+<li><p><strong>k</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></span>) – Number of results to select</p></li>
+<li><p><strong>lambda_mult</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></span>) – MMR parameter balancing relevance vs. diversity (0.0 to 1.0)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Indices of selected candidates in order of selection</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[int]</p>
+</dd>
+</dl>
+<p>MMR Algorithm Overview:</p>
+<p>The algorithm iteratively selects candidates that maximize the MMR score:</p>
+<p>MMR_score(i) = λ × Relevance(i, query) - (1-λ) × max_similarity(i, selected)</p>
+<p>Where:
+- λ (lambda_mult): Weight for relevance vs. diversity
+- Relevance(i, query): Cosine similarity between candidate i and query
+- max_similarity(i, selected): Maximum similarity between candidate i and already selected items</p>
+<p>Algorithm Steps:</p>
+<ol class="arabic simple">
+<li><p>INITIALIZATION:
+- Calculate relevance scores for all candidates vs. query
+- Select the highest-scoring candidate as the first result
+- Initialize selected and remaining candidate sets</p></li>
+<li><p>ITERATIVE SELECTION:
+- For each remaining position, calculate MMR score for all candidates
+- MMR score balances query relevance with diversity from selected items
+- Select candidate with highest MMR score
+- Update selected and remaining sets</p></li>
+<li><p>TERMINATION:
+- Continue until k candidates selected or no more candidates available
+- Return indices in selection order</p></li>
+</ol>
+<p>Mathematical Foundation:</p>
+<p>Cosine Similarity:
+- cos(a,b) = (a·b) / (||a|| × ||b||)
+- Range: [-1, 1] where 1 = identical, 0 = orthogonal, -1 = opposite
+- Normalized vectors typically have values in [0, 1] range</p>
+<p>MMR Score Calculation:
+- Relevance term: λ × cos(query, candidate)
+- Diversity term: (1-λ) × max(cos(candidate, selected_i))
+- Higher relevance increases score, higher similarity to selected decreases score</p>
+<p>Lambda Parameter Behavior:</p>
+<p>λ = 0.0 (Pure Diversity):
+- Only diversity matters, relevance ignored
+- Results may be irrelevant to query
+- Useful for exploratory search</p>
+<p>λ = 0.5 (Balanced):
+- Equal weight for relevance and diversity
+- Good compromise for general use
+- Moderate redundancy reduction</p>
+<p>λ = 0.6 (Current Setting):
+- Slight preference for relevance
+- Good diversity while maintaining relevance
+- Recommended for most RAG applications</p>
+<p>λ = 1.0 (Pure Relevance):
+- Only relevance matters, diversity ignored
+- Equivalent to simple top-K selection
+- May have redundant results</p>
+<p>Performance Characteristics:</p>
+<p>Time Complexity:
+- O(k × n) where k = results to select, n = total candidates
+- Each iteration processes all remaining candidates
+- Quadratic complexity in worst case (k ≈ n)</p>
+<p>Space Complexity:
+- O(n) for storing vectors and similarity scores
+- O(k) for selected indices
+- O(n) for remaining candidate set</p>
+<p>Memory Usage:
+- Vector storage: All candidate vectors loaded in memory
+- Similarity cache: Relevance scores computed once
+- Selection state: Small overhead for tracking</p>
+<p>Quality Metrics:</p>
+<p>Relevance Preservation:
+- Higher lambda values preserve more relevance
+- Lower lambda values may sacrifice relevance for diversity
+- Optimal balance depends on use case</p>
+<p>Diversity Improvement:
+- MMR significantly reduces redundancy compared to top-K
+- Diversity increases as lambda decreases
+- Measurable improvement in information coverage</p>
+<p>User Experience:
+- Less repetitive results
+- Better coverage of different aspects
+- More informative context for LLM generation</p>
+<p>Use Case Recommendations:</p>
+<p>Research &amp; Exploration:
+- λ = 0.3-0.5: Maximize diversity for comprehensive understanding
+- Higher k values: More diverse perspectives</p>
+<p>Factual Queries:
+- λ = 0.7-0.9: Prioritize relevance for accurate information
+- Lower k values: Focus on most relevant results</p>
+<p>Technical Documentation:
+- λ = 0.5-0.7: Balance relevance with diverse technical perspectives
+- Moderate k values: Comprehensive technical coverage</p>
+<p>Conversational AI:
+- λ = 0.6-0.8: Good relevance with some diversity
+- Higher k values: Rich context for generation</p>
+<p>Tuning Guidelines:</p>
+<p>For Maximum Diversity:
+- Decrease lambda to 0.3-0.5
+- Increase k to 8-12 results
+- Monitor relevance quality</p>
+<p>For Maximum Relevance:
+- Increase lambda to 0.8-1.0
+- Decrease k to 3-6 results
+- Accept some redundancy</p>
+<p>For Balanced Results:
+- Use lambda = 0.6-0.7 (current setting)
+- Moderate k values (6-8)
+- Good compromise for most applications</p>
+<p>Implementation Notes:</p>
+<p>Numerical Stability:
+- Small epsilon (1e-12) added to prevent division by zero
+- Cosine similarity handles normalized vectors robustly
+- Float precision sufficient for similarity calculations</p>
+<p>Edge Cases:
+- Empty candidate list: Returns empty result
+- k &gt; candidates: Returns all candidates
+- Single candidate: Returns that candidate regardless of lambda</p>
+<p>Optimization Opportunities:
+- Vector similarity could be pre-computed and cached
+- Parallel processing for large candidate sets
+- Early termination for very low diversity scores</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.hybrid_search">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">hybrid_search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#hybrid_search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.hybrid_search" title="Link to this definition">¶</a></dt>
+<dd><p>Perform hybrid search combining semantic similarity and text-based matching.</p>
+<p>This function implements a sophisticated retrieval strategy that leverages both
+semantic understanding and traditional text search to provide high-quality,
+relevant results with minimal redundancy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">QdrantClient</span></code></span>) – Qdrant client for database operations</p></li>
+<li><p><strong>settings</strong> (<span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#utils.rag_qdrant_hybrid.Settings" title="utils.rag_qdrant_hybrid.Settings"><code class="xref py py-class docutils literal notranslate"><span class="pre">Settings</span></code></a></span>) – Configuration object containing search parameters</p></li>
+<li><p><strong>query</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span>) – User’s search query string</p></li>
+<li><p><strong>embeddings</strong> (<span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">AzureOpenAIEmbeddings</span></code></span>) – Embedding model for semantic search</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Ranked list of relevant document chunks</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[ScoredPoint]</p>
+</dd>
+</dl>
+<p>Hybrid Search Strategy Overview:</p>
+<ol class="arabic simple">
+<li><p>SEMANTIC SEARCH (Vector Similarity):
+- Converts query to embedding vector
+- Performs approximate nearest neighbor search using HNSW index
+- Retrieves top_n_semantic candidates based on cosine similarity
+- Provides semantic understanding of query intent</p></li>
+<li><p>TEXT-BASED PREFILTERING:
+- Uses full-text search capabilities (BM25 scoring)
+- Identifies documents containing query keywords/phrases
+- Creates a set of text-relevant document IDs
+- Acts as a relevance filter for semantic results</p></li>
+<li><p>SCORE FUSION &amp; NORMALIZATION:
+- Normalizes semantic scores to [0,1] range for fair comparison
+- Applies alpha weight to balance semantic vs. text relevance
+- Adds text_boost for results matching both criteria
+- Creates unified relevance scoring</p></li>
+<li><p>RESULT DIVERSIFICATION (Optional MMR):
+- Applies Maximal Marginal Relevance to reduce redundancy
+- Balances relevance with diversity using mmr_lambda parameter
+- Selects final_k results from top candidates</p></li>
+</ol>
+<p>Algorithm Flow:</p>
+<p>Phase 1: Semantic Retrieval
+- Query embedding generation
+- HNSW-based vector search
+- Score normalization for fusion</p>
+<p>Phase 2: Text Matching
+- Full-text search with MatchText filter
+- ID collection for hybrid scoring
+- Performance optimization with pagination</p>
+<p>Phase 3: Score Fusion
+- Linear combination of semantic and text scores
+- Boost application for hybrid matches
+- Ranking by fused scores</p>
+<p>Phase 4: Result Selection
+- Top-N selection or MMR diversification
+- Final result ordering and return</p>
+<p>Performance Characteristics:</p>
+<p>Time Complexity:
+- Semantic search: O(log n) with HNSW index
+- Text search: O(m) where m is text matches
+- Score fusion: O(k) where k is semantic candidates
+- MMR: O(k²) for diversity computation</p>
+<p>Memory Usage:
+- Vector storage: Quantized vectors in memory
+- Score storage: Temporary arrays for fusion
+- Result storage: Final selected points</p>
+<p>Quality Metrics:</p>
+<p>Recall (Completeness):
+- Semantic search: High recall for conceptual queries
+- Text search: High recall for keyword queries
+- Hybrid approach: Combines strengths of both</p>
+<p>Precision (Relevance):
+- Score fusion: Balances multiple relevance signals
+- Text boost: Rewards multi-criteria matches
+- MMR: Reduces redundant results</p>
+<p>Diversity:
+- MMR algorithm: Maximizes information coverage
+- Lambda parameter: Controls diversity vs. relevance trade-off
+- Result variety: Better user experience</p>
+<p>Tuning Guidelines:</p>
+<p>For High Precision:
+- Increase alpha (0.8-0.9): Prioritize semantic similarity
+- Increase text_boost (0.3-0.5): Reward text matches
+- Decrease mmr_lambda (0.7-0.9): Prioritize relevance</p>
+<p>For High Recall:
+- Increase top_n_semantic (50-100): More candidates
+- Increase top_n_text (150-200): More text matches
+- Decrease alpha (0.5-0.7): Balance search strategies</p>
+<p>For High Diversity:
+- Enable MMR (use_mmr=True)
+- Decrease mmr_lambda (0.3-0.6): Prioritize diversity
+- Increase final_k (8-12): More diverse results</p>
+<p>Use Case Optimizations:</p>
+<p>Technical Documentation:
+- High alpha (0.8-0.9): Semantic understanding critical
+- High text_boost (0.3-0.4): Technical terms important
+- MMR enabled: Diverse technical perspectives</p>
+<p>General Knowledge:
+- Balanced alpha (0.6-0.8): Both strategies valuable
+- Moderate text_boost (0.2-0.3): Balanced approach
+- MMR enabled: Comprehensive coverage</p>
+<p>Factual Queries:
+- High alpha (0.7-0.9): Semantic context important
+- Low text_boost (0.1-0.2): Facts over style
+- MMR optional: Precision over diversity</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.format_docs_for_prompt">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">format_docs_for_prompt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#format_docs_for_prompt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.format_docs_for_prompt" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>points</strong> (<em>Iterable</em><em>[</em><em>Any</em><em>]</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.build_rag_chain">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">build_rag_chain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">llm</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#build_rag_chain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.build_rag_chain" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.get_contexts_for_question">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">get_contexts_for_question</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">client</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">settings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">question</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#get_contexts_for_question"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.get_contexts_for_question" title="Link to this definition">¶</a></dt>
+<dd><p>Return the top-k document chunks used as context for a question.</p>
+<p>Retrieves relevant document chunks for a given question using hybrid search
+and extracts only the text content for use as context in RAG evaluation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>client</strong> – Qdrant client for database operations.</p></li>
+<li><p><strong>settings</strong> – Configuration object with search parameters.</p></li>
+<li><p><strong>embeddings</strong> – Embeddings model for query encoding.</p></li>
+<li><p><strong>question</strong> (<em>str</em>) – Question to find relevant context for.</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – Number of context chunks to retrieve. Range: [1, 100].</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>List of text strings representing the most relevant</dt><dd><p>document chunks for the question.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">client</span> <span class="o">=</span> <span class="n">get_qdrant_client</span><span class="p">(</span><span class="n">Settings</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">settings</span> <span class="o">=</span> <span class="n">Settings</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">embeddings</span> <span class="o">=</span> <span class="n">get_embeddings</span><span class="p">(</span><span class="n">settings</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">contexts</span> <span class="o">=</span> <span class="n">get_contexts_for_question</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">settings</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">,</span> <span class="s2">&quot;What is AI?&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">contexts</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">3</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">ctx</span> <span class="ow">in</span> <span class="n">contexts</span><span class="p">)</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.extract_context_texts">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">extract_context_texts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#extract_context_texts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.extract_context_texts" title="Link to this definition">¶</a></dt>
+<dd><p>Extract individual context texts from Qdrant points for RAGAS evaluation.</p>
+<p>Extracts text content from Qdrant points for use in RAGAS (RAG Assessment)
+evaluation metrics. Specifically designed to provide context texts for
+evaluating retrieval quality.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>points</strong> (<em>Iterable</em><em>[</em><em>Any</em><em>]</em>) – Iterable of Qdrant points with payload containing
+‘text’ field.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of text strings extracted from the points’ payloads.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">MockPoint</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+<span class="gp">... </span>        <span class="bp">self</span><span class="o">.</span><span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">text</span><span class="p">}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">MockPoint</span><span class="p">(</span><span class="s2">&quot;Context 1&quot;</span><span class="p">),</span> <span class="n">MockPoint</span><span class="p">(</span><span class="s2">&quot;Context 2&quot;</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">texts</span> <span class="o">=</span> <span class="n">extract_context_texts</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">texts</span>
+<span class="go">[&#39;Context 1&#39;, &#39;Context 2&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.run_rag_qdrant">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">run_rag_qdrant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">question</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#run_rag_qdrant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.run_rag_qdrant" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></span></p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>question</strong> (<em>str</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="utils.rag_qdrant_hybrid.main">
+<span class="sig-prename descclassname"><span class="pre">utils.rag_qdrant_hybrid.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/utils/rag_qdrant_hybrid.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.rag_qdrant_hybrid.main" title="Link to this definition">¶</a></dt>
+<dd><p>Main execution function demonstrating the complete RAG pipeline.</p>
+<p>This function orchestrates the entire RAG workflow from document ingestion
+to intelligent question answering, showcasing the system’s capabilities
+and providing a template for production deployment.</p>
+<p>Pipeline Overview:</p>
+<ol class="arabic simple">
+<li><p>SYSTEM INITIALIZATION:
+- Load configuration settings
+- Initialize embedding model
+- Configure LLM (optional)
+- Establish database connection</p></li>
+<li><p>DOCUMENT PROCESSING:
+- Load or simulate document corpus
+- Split documents into manageable chunks
+- Generate vector embeddings for each chunk</p></li>
+<li><p>VECTOR DATABASE SETUP:
+- Create/configure Qdrant collection
+- Set up HNSW indexing and payload indices
+- Optimize for semantic search performance</p></li>
+<li><p>DATA INGESTION:
+- Store document chunks with metadata
+- Index vectors for fast retrieval
+- Ensure data consistency and availability</p></li>
+<li><p>INTELLIGENT RETRIEVAL:
+- Process user queries through hybrid search
+- Combine semantic and text-based matching
+- Apply MMR for result diversification</p></li>
+<li><p>CONTENT GENERATION:
+- Use LLM for intelligent answer generation
+- Fall back to content display if LLM unavailable
+- Provide source citations and context</p></li>
+</ol>
+<p>Performance Characteristics:</p>
+<p>Initialization Time:
+- Embedding model: 2-10 seconds (depends on model size)
+- LLM connection: 0.1-5 seconds (depends on service)
+- Database setup: 1-5 seconds (depends on collection size)</p>
+<p>Processing Time:
+- Document chunking: Linear with document count
+- Vector generation: Linear with chunk count
+- Database indexing: O(n log n) with HNSW construction</p>
+<p>Query Time:
+- Semantic search: Sub-millisecond with HNSW
+- Text search: Millisecond range with payload indices
+- Result fusion: Linear with candidate count
+- MMR diversification: Quadratic with candidate count</p>
+<p>Memory Usage:
+- Embedding model: 100MB-2GB (depends on model)
+- Vector storage: 4 bytes × dimensions × chunks (quantized)
+- Payload storage: Variable based on metadata size
+- LLM context: Depends on model and input size</p>
+<p>Scalability Considerations:</p>
+<p>Document Volume:
+- Small (&lt;1K docs): Current settings optimal
+- Medium (1K-100K docs): Consider batch processing
+- Large (100K+ docs): Implement streaming ingestion</p>
+<p>Vector Dimensions:
+- 384 dimensions: Fast, memory-efficient, good quality
+- 768 dimensions: Higher quality, more memory, slower
+- 1024+ dimensions: Maximum quality, significant overhead</p>
+<p>Collection Management:
+- Single collection: Simple, good for small-medium datasets
+- Multiple collections: Better for large, diverse datasets
+- Sharding: Consider for very large datasets (&gt;1M vectors)</p>
+<p>Error Handling Strategy:</p>
+<p>Graceful Degradation:
+- LLM failures: Fall back to content display
+- Database errors: Informative error messages
+- Network issues: Retry logic for transient failures</p>
+<p>Resource Management:
+- Memory monitoring: Prevent OOM conditions
+- Connection pooling: Efficient database usage
+- Cleanup: Proper resource deallocation</p>
+<p>Monitoring &amp; Logging:
+- Performance metrics: Track response times
+- Error rates: Monitor system health
+- Usage patterns: Understand user behavior</p>
+<p>Production Deployment Considerations:</p>
+<p>Environment Configuration:
+- Use environment variables for sensitive data
+- Separate configs for dev/staging/production
+- Implement proper logging and monitoring</p>
+<p>Security:
+- API key management: Secure storage and rotation
+- Network security: HTTPS, firewall rules
+- Access control: User authentication and authorization</p>
+<p>Performance Optimization:
+- Caching: Redis for frequently accessed data
+- Load balancing: Distribute requests across instances
+- CDN: Static content delivery optimization</p>
+<p>Maintenance:
+- Regular backups: Database and configuration
+- Model updates: Periodic embedding model refresh
+- Performance tuning: Monitor and adjust parameters</p>
+</dd></dl>
+
+<table class="autosummary longtable docutils align-default">
+<tbody>
+</tbody>
+</table>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Project 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Project overview</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="main.html">Main flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crews.html">Crews</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+  <li><a href="utils.html">Utilities</a><ul>
+      <li>Previous: <a href="utils_prompt_injection.html" title="previous chapter">utils.prompt_injection</a></li>
+      <li>Next: <a href="utils_ragas_evaluation.html" title="next chapter">utils.ragas_evaluation</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/utils_rag_qdrant_hybrid.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

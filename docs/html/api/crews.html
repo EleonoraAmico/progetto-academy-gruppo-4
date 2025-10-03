@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Crews &#8212; Project 4 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=f2a433a1"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Utilities" href="utils.html" />
+    <link rel="prev" title="Main flow" href="main.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="crews">
+<h1>Crews<a class="headerlink" href="#crews" title="Link to this heading">¶</a></h1>
+<section id="module-progetto.crews.rag_crew.rag_crew">
+<span id="ragcrew"></span><h2>RagCrew<a class="headerlink" href="#module-progetto.crews.rag_crew.rag_crew" title="Link to this heading">¶</a></h2>
+<p>RAG crew definition.</p>
+<p>This module defines the <cite>RagCrew</cite>, which orchestrates retrieval over the
+knowledge base and optional web research to support answering user questions
+about Calls for Proposals.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="progetto.crews.rag_crew.rag_crew.RagCrew">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">progetto.crews.rag_crew.rag_crew.</span></span><span class="sig-name descname"><span class="pre">RagCrew</span></span><a class="headerlink" href="#progetto.crews.rag_crew.rag_crew.RagCrew" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Crew that retrieves context from the knowledge base and the web.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="progetto.crews.rag_crew.rag_crew.RagCrew.agents">
+<span class="sig-name descname"><span class="pre">agents</span></span><a class="headerlink" href="#progetto.crews.rag_crew.rag_crew.RagCrew.agents" title="Link to this definition">¶</a></dt>
+<dd><p>Agents automatically created from YAML configuration.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="progetto.crews.rag_crew.rag_crew.RagCrew.tasks">
+<span class="sig-name descname"><span class="pre">tasks</span></span><a class="headerlink" href="#progetto.crews.rag_crew.rag_crew.RagCrew.tasks" title="Link to this definition">¶</a></dt>
+<dd><p>Tasks automatically created from YAML configuration.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-progetto.crews.answer_writer.answer_writer">
+<span id="answerwriter"></span><h2>AnswerWriter<a class="headerlink" href="#module-progetto.crews.answer_writer.answer_writer" title="Link to this heading">¶</a></h2>
+<p>Answer writer crew definition.</p>
+<p>This module defines the <cite>AnswerWriter</cite>, a crew that validates inputs and writes
+the final report-style answer based on retrieved and validated contexts.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="progetto.crews.answer_writer.answer_writer.AnswerWriter">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">progetto.crews.answer_writer.answer_writer.</span></span><span class="sig-name descname"><span class="pre">AnswerWriter</span></span><a class="headerlink" href="#progetto.crews.answer_writer.answer_writer.AnswerWriter" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Crew that validates inputs and writes the final answer.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="progetto.crews.answer_writer.answer_writer.AnswerWriter.agents">
+<span class="sig-name descname"><span class="pre">agents</span></span><a class="headerlink" href="#progetto.crews.answer_writer.answer_writer.AnswerWriter.agents" title="Link to this definition">¶</a></dt>
+<dd><p>Agents automatically created from YAML configuration.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="progetto.crews.answer_writer.answer_writer.AnswerWriter.tasks">
+<span class="sig-name descname"><span class="pre">tasks</span></span><a class="headerlink" href="#progetto.crews.answer_writer.answer_writer.AnswerWriter.tasks" title="Link to this definition">¶</a></dt>
+<dd><p>Tasks automatically created from YAML configuration.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">Project 4</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Project overview</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="main.html">Main flow</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Crews</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utilities</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">API reference</a><ul>
+      <li>Previous: <a href="main.html" title="previous chapter">Main flow</a></li>
+      <li>Next: <a href="utils.html" title="next chapter">Utilities</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/api/crews.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
