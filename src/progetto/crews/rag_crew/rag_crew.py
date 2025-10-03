@@ -1,3 +1,9 @@
+"""RAG crew definition.
+
+This module defines the `RagCrew`, which orchestrates retrieval over the
+knowledge base and optional web research to support answering user questions
+about Calls for Proposals.
+"""
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
@@ -12,7 +18,12 @@ from crewai_tools import SerperDevTool
 
 @CrewBase
 class RagCrew():
-    """RagCrew crew"""
+    """Crew that retrieves context from the knowledge base and the web.
+
+    Attributes:
+        agents: Agents automatically created from YAML configuration.
+        tasks: Tasks automatically created from YAML configuration.
+    """
 
     agents: List[BaseAgent]
     tasks: List[Task]
@@ -25,9 +36,11 @@ class RagCrew():
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def rag_retriever(self) -> Agent:
-        '''
-        This agent uses the RagTool to answer questions about the knowledge base.
-        '''
+        """Agent that retrieves relevant chunks from the knowledge base.
+
+        Returns:
+            Agent: Configured agent with the RAG retrieval tool attached.
+        """
         return Agent(
             config=self.agents_config["rag_retriever"],
             allow_delegation=False,
@@ -36,9 +49,11 @@ class RagCrew():
 
     @agent
     def web_researcher(self) -> Agent:
-        '''
-        This agent uses the RagTool to answer questions about the knowledge base.
-        '''
+        """Agent that performs lightweight web research.
+
+        Returns:
+            Agent: Configured agent with a web search tool.
+        """
         return Agent(
             config=self.agents_config["web_researcher"],
             allow_delegation=False,
@@ -61,11 +76,21 @@ class RagCrew():
     # https://docs.crewai.com/concepts/tasks#overview-of-a-task
     @task
     def rag_retriever_task(self) -> Task:
+        """Task to retrieve internal knowledge base snippets.
+
+        Returns:
+            Task: Configured retrieval task.
+        """
         return Task(
             config=self.tasks_config['rag_retriever_task'], # type: ignore[index]
         )
     @task
     def web_research_task(self) -> Task:
+        """Task to perform web research using search tools.
+
+        Returns:
+            Task: Configured web research task that depends on retrieval.
+        """
         return Task(
             config=self.tasks_config['web_research_task'],
             context=[self.rag_retriever_task()]  # type: ignore[index]
@@ -81,7 +106,11 @@ class RagCrew():
 
     @crew
     def crew(self) -> Crew:
-        """Creates the RagCrew crew"""
+        """Create the `RagCrew` instance.
+
+        Returns:
+            Crew: Configured sequential crew with retrieval and web research.
+        """
         # To learn how to add knowledge sources to your crew, check out the documentation:
         # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
 

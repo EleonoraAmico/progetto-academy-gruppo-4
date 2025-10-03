@@ -1,8 +1,12 @@
-"""Main entrypoint and flow definition for the RAG-based QA application.
+"""RAG-based Q&A flow and CLI entrypoint.
 
-This module defines the `RagFlow` conversation flow, orchestrating topic
-validation, retrieval via `RagCrew`, optional web validation, and answer
-generation via `AnswerWriter`.
+This module defines the `RagFlow` conversation flow that validates a user
+question against a main topic about Calls for Proposals, performs retrieval
+augmented generation via `RagCrew`, optionally validates web sources, and then
+produces a final answer via `AnswerWriter`.
+
+The flow is designed to be documented with Sphinx and follows Google-style
+docstrings for classes and functions.
 """
 
 import json
@@ -28,11 +32,15 @@ ALLOWED_TOPICS = ["Culture", "ICT", "Green Economy"]
 # ALLOWED_TOPICS = ["python"]
 
 class RagCrewResponseItem(BaseModel):
-    """Schema for a single result item returned by the RAG pipeline.
+    """Single result item returned by the RAG pipeline.
 
-    Fields include the origin (e.g., RAG or WEB), title, source identifier or
-    URL, content excerpt, similarity score, and whether the source is in the
-    whitelist.
+    Attributes:
+        origin: Origin label (e.g., ``"RAG"`` or ``"WEB"``).
+        title: Title of the source.
+        source: URL or identifier of the source.
+        content: Content excerpt from the source.
+        similarity: Similarity score from the retriever.
+        is_trusted: Whether the source is on the whitelist.
     """
     origin: str = Field(description="The origin of the source, e.g., 'RAG' or 'WEB'")
     title: str = Field(description="The title of the source")
@@ -42,11 +50,27 @@ class RagCrewResponseItem(BaseModel):
     is_trusted: bool = Field(description="Whether the source is trusted based on white list")
 
 class RagCrewResponseList(BaseModel):
-    """Validation model for a list of RagCrewResponseItem."""
+    """Validation model for a list of `RagCrewResponseItem` objects.
+
+    Attributes:
+        results: List of validated retrieval results.
+    """
     results: List[RagCrewResponseItem] = Field(description="List of RAG Crew search results")
 
 class FlowState(BaseModel):
-    """State carried across the flow steps."""
+    """State carried across the flow steps.
+
+    Attributes:
+        topic: The sector/topic used to scope valid questions.
+        is_topic_related: Whether the question is related to ``MAIN_TOPIC``.
+        user_question: The user-provided question.
+        rag_crew_raw_response: Raw JSON/string response returned by the RAG crew.
+        rag_crew_validated_response: Parsed and validated RAG results.
+        web_validation_results: Web results annotated with trust flags.
+        answer_writer_raw_response: Raw response returned by the AnswerWriter crew.
+        rag_crew: Crew handle for the executed RAG crew.
+        answer_writer: Crew handle for the executed AnswerWriter crew.
+    """
     topic: str = Field(default="", description="The topic for scoping questions")
     is_topic_related: bool = Field(default=False, description="Whether the question is about the topic")
     user_question: str = Field(default="", description="The question provided by the user")
@@ -60,12 +84,15 @@ class FlowState(BaseModel):
 class RagFlow(Flow[FlowState]):
     """Conversation flow to validate and answer topic-specific questions.
 
-    The flow consists of:
-    - start: initialize the flow
-    - ask_question: prompt the user for a question
-    - process_topic: validate the question using an LLM with JSON schema
-    - validate_question: route to either retry or proceed to RAG execution
-    - process_rag: run the `RagCrew` to answer the question
+    Steps:
+        - ``start``: Initialize the flow.
+        - ``ask_question``: Prompt the user for a sector and question.
+        - ``process_topic``: Validate topic relevance using an LLM.
+        - ``validate_question``: Route to retry or proceed.
+        - ``process_rag``: Run the RAG crew.
+        - ``process_web_site_validation``: Mark trusted web sources.
+        - ``process_answer_writing``: Generate a final answer.
+        - ``finalize``: Return the aggregated payload.
     """
 
     @start()
@@ -83,9 +110,13 @@ class RagFlow(Flow[FlowState]):
 
     @listen(ask_question)
     def process_topic(self):
-        """Evaluate if the sector and the question are relevant to the current topic using an LLM.
-        On success, sets ``self.state.is_topic_related`` by parsing the LLM JSON
-        response.
+        """Evaluate topic relevance using an LLM and update state.
+
+        Side Effects:
+            Updates ``self.state.is_topic_related`` based on the model output.
+
+        Returns:
+            dict: A payload summarizing the validation inputs and outcome.
         """
         print("Validating the question and the sector.")
 
@@ -140,7 +171,11 @@ class RagFlow(Flow[FlowState]):
 
     @router(process_topic)
     def validate_question(self):
-        """Route based on validation outcome."""
+        """Route based on validation outcome.
+
+        Returns:
+            str: ``"Question valid"`` if relevant, otherwise ``"Retry question"``.
+        """
         if self.state.is_topic_related:
             print("The question is relevant to the topic")
             return "Question valid"
@@ -154,7 +189,11 @@ class RagFlow(Flow[FlowState]):
 
     @listen(or_("Question valid", "JSON not valid"))
     def process_rag(self):
-        """Execute the RAG crew to answer a validated question."""
+        """Execute the RAG crew after a valid question is confirmed.
+
+        Returns:
+            dict: Payload including crew handle and raw response.
+        """
         rag_crew = (
             RagCrew()
             .crew()
@@ -180,7 +219,11 @@ class RagFlow(Flow[FlowState]):
 
     @router(process_rag)
     def validate_rag_crew_results(self):
-        """Valida i risultati della ricerca usando Pydantic."""
+        """Validate RAG results using Pydantic models.
+
+        Returns:
+            str: ``"JSON valid"`` on success, otherwise ``"JSON not valid"``.
+        """
         try:
             # Parse the JSON string first, then validate
             raw_response = self.state.rag_crew_raw_response
@@ -204,7 +247,11 @@ class RagFlow(Flow[FlowState]):
 
     @listen("JSON valid")
     def process_web_site_validation(self):
-        """Process the web site validation step with validated data."""
+        """Mark web results as trusted based on the whitelist.
+
+        Reads ``WHITE_LIST_PATH`` and annotates each WEB-origin result with an
+        ``is_trusted`` flag.
+        """
         # Usa i dati già validati
         validated_results = self.state.rag_crew_validated_response
         # Carica whitelist per validazione URL
@@ -229,7 +276,11 @@ class RagFlow(Flow[FlowState]):
 
     @listen(process_web_site_validation)
     def process_answer_writing(self):
-        """Execute the answer writer crew using validated web results."""
+        """Execute the AnswerWriter crew using validated web results.
+
+        Returns:
+            dict: Aggregated payload ready for downstream consumption.
+        """
         answer_writer = (
             AnswerWriter()
             .crew()
@@ -258,11 +309,21 @@ class RagFlow(Flow[FlowState]):
 
     @listen(process_answer_writing)
     def finalize(self, payload: Dict[str, Any]):
-        """Return the aggregated payload at the end of the flow."""
+        """Return the aggregated payload at the end of the flow.
+
+        Args:
+            payload (dict): Aggregated results from all previous steps.
+
+        Returns:
+            dict: The same payload passed in, for convenience.
+        """
         return payload
 
 def kickoff():
-    """Start the ``RagFlow`` from the command line."""
+    """Start the ``RagFlow`` from the command line.
+
+    This helper sets up telemetry and kicks off the interactive flow.
+    """
     track_crewai(project_name="crewai-integration-rag_crew")
     rag_flow = RagFlow()
     rag_flow.kickoff()

@@ -1,3 +1,8 @@
+"""Answer writer crew definition.
+
+This module defines the `AnswerWriter`, a crew that validates inputs and writes
+the final report-style answer based on retrieved and validated contexts.
+"""
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
@@ -8,7 +13,12 @@ from typing import List
 
 @CrewBase
 class AnswerWriter():
-    """AnswerWriter crew"""
+    """Crew that validates inputs and writes the final answer.
+
+    Attributes:
+        agents: Agents automatically created from YAML configuration.
+        tasks: Tasks automatically created from YAML configuration.
+    """
 
     agents: List[BaseAgent]
     tasks: List[Task]
@@ -21,12 +31,22 @@ class AnswerWriter():
     # https://docs.crewai.com/concepts/agents#agent-tools
     @agent
     def validator(self) -> Agent:
+        """Agent that validates inputs and constraints before writing.
+
+        Returns:
+            Agent: Configured validation agent.
+        """
         return Agent(
             config=self.agents_config['validator'], # type: ignore[index]
             verbose=True
         )
     @agent
     def answer_writer(self) -> Agent:
+        """Agent that drafts the final answer/report for the user.
+
+        Returns:
+            Agent: Configured authoring agent.
+        """
         return Agent(
             config=self.agents_config['answer_writer'], # type: ignore[index]
             verbose=True
@@ -38,12 +58,22 @@ class AnswerWriter():
 
     @task
     def validator_task(self) -> Task:
+        """Task to validate inputs and intermediate content.
+
+        Returns:
+            Task: Configured validation task.
+        """
         return Task(
             config=self.tasks_config['validator_task'], # type: ignore[index]
         )
     
     @task
     def writing_task(self) -> Task:
+        """Task to write the final answer using validated context.
+
+        Returns:
+            Task: Configured writing task that depends on validation.
+        """
         return Task(
             config=self.tasks_config['writing_task'], # type: ignore[index]
             context=[self.validator_task()]  # ← Usa output del task precedente
@@ -52,7 +82,11 @@ class AnswerWriter():
 
     @crew
     def crew(self) -> Crew:
-        """Creates the AnswerWriter crew"""
+        """Create the `AnswerWriter` crew.
+
+        Returns:
+            Crew: Configured sequential crew with validation and writing tasks.
+        """
         # To learn how to add knowledge sources to your crew, check out the documentation:
         # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
 
