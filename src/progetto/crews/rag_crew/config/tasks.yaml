@@ -14,7 +14,7 @@ rag_retriever_task:
     A valid JSON array containing the retrieved chunks. Each chunk must be a JSON object with exactly these fields:
     {
       "origin": "RAG",
-      "title": "<document title from metadata>",
+      "title": "<document title from metadata, or if it's empty the chunk id>",
       "similarity": <similarity score as number>,
       "source": "<chunk _id>",
       "content": "<full retrieved text chunk>",
