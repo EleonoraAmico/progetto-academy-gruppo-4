@@ -6,5 +6,13 @@ utils.prompt_injection
    :undoc-members:
    :inherited-members: False
    :show-inheritance: False
+   :member-order: bysource
+   :special-members: __init__
+   :private-members:
+
+.. autosummary::
+   :toctree: _generated
+   :recursive:
+
 
 

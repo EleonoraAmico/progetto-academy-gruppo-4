@@ -14,6 +14,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinx.ext.autosummary',
     'sphinx_autodoc_typehints',
 ]
 
@@ -34,6 +35,15 @@ autodoc_typehints = 'description'
 autodoc_typehints_format = 'short'
 autodoc_inherit_docstrings = False
 autoclass_content = 'class'
+autosummary_generate = True
+
+# Avoid importing heavy or unavailable dependencies during autodoc
+autodoc_mock_imports = [
+    'rag_qdrant_hybrid', 'qdrant_client', 'ragas', 'ddgs',
+    'crewai', 'crewai.flow', 'crewai_tools', 'opik',
+    'langchain', 'langchain_core', 'langchain_community', 'langchain_openai',
+    'openai', 'dotenv', 'yaml', 'pydantic', 'bs4'
+]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
